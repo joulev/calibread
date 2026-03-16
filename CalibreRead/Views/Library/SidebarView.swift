@@ -18,7 +18,7 @@ struct SidebarView: View {
             }
 
             Section("Authors") {
-                ForEach(library.authors) { author in
+                ForEach(library.authors, id: \.id) { author in
                     Button {
                         library.clearFilters()
                         library.selectedAuthor = author
@@ -31,7 +31,7 @@ struct SidebarView: View {
             }
 
             Section("Series") {
-                ForEach(library.seriesList) { series in
+                ForEach(library.seriesList, id: \.id) { series in
                     Button {
                         library.clearFilters()
                         library.selectedSeries = series
@@ -44,7 +44,7 @@ struct SidebarView: View {
             }
 
             Section("Tags") {
-                ForEach(library.tags) { tag in
+                ForEach(library.tags, id: \.id) { tag in
                     Button {
                         library.clearFilters()
                         library.selectedTag = tag

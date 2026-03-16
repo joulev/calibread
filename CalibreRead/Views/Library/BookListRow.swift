@@ -30,7 +30,7 @@ struct BookListRow: View {
             }
 
             HStack(spacing: 4) {
-                ForEach(book.formats) { format in
+                ForEach(book.formats, id: \.id) { format in
                     Text(format.format)
                         .font(.system(size: 10, weight: .medium))
                         .padding(.horizontal, 5)

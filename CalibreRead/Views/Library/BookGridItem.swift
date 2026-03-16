@@ -25,7 +25,7 @@ struct BookGridItem: View {
 
             if !book.formats.isEmpty {
                 HStack(spacing: 4) {
-                    ForEach(book.formats) { format in
+                    ForEach(book.formats, id: \.id) { format in
                         Text(format.format)
                             .font(.system(size: 9, weight: .medium))
                             .padding(.horizontal, 4)
