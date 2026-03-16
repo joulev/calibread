@@ -160,48 +160,49 @@ struct EPUBReaderView: View {
             HStack(spacing: 0) {
                 navigationArrow(isLeft: true)
 
-                EPUBWebView(
-                    fileURL: service.chapters[currentChapterIndex].fileURL,
-                    contentBaseURL: service.contentRootURL,
-                    theme: theme,
-                    fontSize: fontSize,
-                    controller: pageController,
-                    onPageInfo: { page, total in
-                        currentPage = page
-                        totalPages = total
-                        // Keep paginated counts in sync with the live WKWebView
-                        if var counts = sectionPageCounts, currentChapterIndex < counts.count {
-                            counts[currentChapterIndex] = total
-                            sectionPageCounts = counts
+                GeometryReader { geo in
+                    EPUBWebView(
+                        fileURL: service.chapters[currentChapterIndex].fileURL,
+                        contentBaseURL: service.contentRootURL,
+                        theme: theme,
+                        fontSize: fontSize,
+                        controller: pageController,
+                        onPageInfo: { page, total in
+                            currentPage = page
+                            totalPages = total
+                            // Keep paginated counts in sync with the live WKWebView
+                            if var counts = sectionPageCounts, currentChapterIndex < counts.count {
+                                counts[currentChapterIndex] = total
+                                sectionPageCounts = counts
+                            }
+                        },
+                        onChapterEnd: { edge in
+                            switch edge {
+                            case .next:
+                                if currentChapterIndex < service.chapters.count - 1 {
+                                    currentChapterIndex += 1
+                                    currentPage = 1
+                                    saveProgress()
+                                }
+                            case .previous:
+                                if currentChapterIndex > 0 {
+                                    currentChapterIndex -= 1
+                                    currentPage = 1
+                                    pageController.pendingFraction = 1.0
+                                    saveProgress()
+                                }
+                            }
                         }
-                    },
-                    onChapterEnd: { edge in
-                        switch edge {
-                        case .next:
-                            if currentChapterIndex < service.chapters.count - 1 {
-                                currentChapterIndex += 1
-                                currentPage = 1
-                                saveProgress()
-                            }
-                        case .previous:
-                            if currentChapterIndex > 0 {
-                                currentChapterIndex -= 1
-                                currentPage = 1
-                                pageController.pendingFraction = 1.0
-                                saveProgress()
-                            }
+                    )
+                    .onAppear {
+                        if geo.size.width > 0, geo.size.height > 0 {
+                            contentSize = geo.size
                         }
                     }
-                )
-                .background {
-                    GeometryReader { geo in
-                        Color.clear
-                            .preference(key: ContentSizeKey.self, value: geo.size)
-                    }
-                }
-                .onPreferenceChange(ContentSizeKey.self) { size in
-                    if size.width > 0, size.height > 0 {
-                        contentSize = size
+                    .onChange(of: geo.size) { _, newSize in
+                        if newSize.width > 0, newSize.height > 0 {
+                            contentSize = newSize
+                        }
                     }
                 }
 
@@ -523,14 +524,5 @@ struct EPUBReaderView: View {
             .padding()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-// MARK: - Preference Key for content size measurement
-
-private struct ContentSizeKey: PreferenceKey {
-    nonisolated(unsafe) static var defaultValue: CGSize = .zero
-    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
-        value = nextValue()
     }
 }
