@@ -50,6 +50,21 @@ struct EPUBWebView: NSViewRepresentable {
         let userController = WKUserContentController()
         userController.add(context.coordinator, name: "pageHandler")
 
+        // Inject scrollbar-hiding CSS at document start — before any rendering
+        // occurs — so native/WebKit scrollbars never flash during navigation.
+        let earlyStyleScript = WKUserScript(
+            source: """
+            (function() {
+                var s = document.createElement('style');
+                s.textContent = 'html { overflow: hidden !important; } ::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }';
+                (document.head || document.documentElement).appendChild(s);
+            })();
+            """,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        userController.addUserScript(earlyStyleScript)
+
         // Hide body immediately on every navigation to prevent unstyled flash
         let hideScript = WKUserScript(
             source: """
@@ -68,6 +83,7 @@ struct EPUBWebView: NSViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         webView.setValue(false, forKey: "drawsBackground")
+
         context.coordinator.webView = webView
         context.coordinator.controller = controller
         context.coordinator.theme = theme
@@ -145,7 +161,25 @@ struct EPUBWebView: NSViewRepresentable {
             self.onContentReadyChanged = onContentReadyChanged
         }
 
+        /// Disable native scroll indicators on all NSScrollView instances inside
+        /// the WKWebView's subview hierarchy. Called once after first navigation.
+        private var didDisableScrollers = false
+        private func disableNativeScrollers(in view: NSView) {
+            if let sv = view as? NSScrollView {
+                sv.hasVerticalScroller = false
+                sv.hasHorizontalScroller = false
+                sv.scrollerStyle = .overlay
+            }
+            for child in view.subviews {
+                disableNativeScrollers(in: child)
+            }
+        }
+
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            if !didDisableScrollers {
+                didDisableScrollers = true
+                disableNativeScrollers(in: webView)
+            }
             currentURL = webView.url
 
             let css = theme.css(fontSize: fontSize)
