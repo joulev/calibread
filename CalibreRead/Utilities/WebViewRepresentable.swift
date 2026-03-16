@@ -49,9 +49,15 @@ struct EPUBWebView: NSViewRepresentable {
         let userController = WKUserContentController()
         userController.add(context.coordinator, name: "pageHandler")
 
-        // Hide body immediately on every navigation to prevent unstyled flash
+        // Hide body and suppress scrollbars immediately on every navigation
+        // to prevent unstyled flash and scrollbar flash during chapter transitions
         let hideScript = WKUserScript(
-            source: "document.addEventListener('DOMContentLoaded', function() { document.body.style.opacity = '0'; });",
+            source: """
+            var s = document.createElement('style');
+            s.textContent = 'html, body { overflow: hidden !important; scrollbar-width: none !important; } ::-webkit-scrollbar { display: none !important; }';
+            document.documentElement.appendChild(s);
+            document.addEventListener('DOMContentLoaded', function() { document.body.style.opacity = '0'; });
+            """,
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         )
