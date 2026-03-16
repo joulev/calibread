@@ -3,9 +3,11 @@ import EPUBKit
 
 /// Handles EPUB file extraction, parsing, and chapter loading.
 final class EPUBService {
-    let document: EPUBDocument
     let extractedURL: URL
     private let libraryRoot: URL
+    private let contentDirectory: URL
+    private let parsedTitle: String?
+    private let parsedAuthor: String?
 
     struct Chapter: Identifiable {
         let id: Int
@@ -28,20 +30,32 @@ final class EPUBService {
 
         self.extractedURL = tempDir
 
-        // Parse EPUB using EPUBParser directly to get real error details
-        // (EPUBDocument(url:) uses try? which swallows the actual error)
+        // Try EPUBKit first, fall back to manual parsing for EPUB 3 without NCX
         do {
-            self.document = try EPUBParser().parse(documentAt: bookURL)
-        } catch {
-            throw EPUBError.failedToParse(
-                parserError: "\(error)",
-                details: EPUBService.gatherDiagnostics(for: bookURL)
+            let document = try EPUBParser().parse(documentAt: bookURL)
+            self.contentDirectory = document.contentDirectory
+            self.parsedTitle = document.title
+            self.parsedAuthor = document.author
+            self.chapters = EPUBService.buildChapters(
+                spine: document.spine,
+                manifest: document.manifest,
+                contentDir: document.contentDirectory
             )
+            self.tableOfContents = EPUBService.buildTOC(
+                toc: document.tableOfContents,
+                contentDir: document.contentDirectory,
+                fallbackChapters: self.chapters
+            )
+        } catch {
+            // If EPUBKit fails (commonly tableOfContentsMissing for EPUB 3),
+            // fall back to manual OPF parsing
+            let fallback = try EPUBService.parseFallback(bookURL: bookURL)
+            self.contentDirectory = fallback.contentDirectory
+            self.parsedTitle = fallback.title
+            self.parsedAuthor = fallback.author
+            self.chapters = fallback.chapters
+            self.tableOfContents = fallback.tableOfContents
         }
-
-        // Build chapter list from spine
-        self.chapters = buildChapters()
-        self.tableOfContents = buildTOC()
     }
 
     deinit {
@@ -49,111 +63,168 @@ final class EPUBService {
     }
 
     var title: String {
-        document.title ?? "Unknown Title"
+        parsedTitle ?? "Unknown Title"
     }
 
     var author: String {
-        document.author ?? "Unknown Author"
+        parsedAuthor ?? "Unknown Author"
     }
 
     func chapterFileURL(for chapter: Chapter) -> URL {
         chapter.fileURL
     }
 
-    // MARK: - Diagnostics
+    // MARK: - Fallback EPUB 3 parser
 
-    private static func gatherDiagnostics(for url: URL) -> String {
-        var lines: [String] = []
-        lines.append("Path: \(url.path)")
-
-        let fm = FileManager.default
-
-        // Check file exists and size
-        guard fm.fileExists(atPath: url.path) else {
-            lines.append("Error: File does not exist at path.")
-            return lines.joined(separator: "\n")
-        }
-
-        if let attrs = try? fm.attributesOfItem(atPath: url.path),
-           let size = attrs[.size] as? Int64 {
-            lines.append("File size: \(size) bytes")
-        }
-
-        // Try to read as a ZIP archive (EPUBs are ZIP files)
-        do {
-            let data = try Data(contentsOf: url, options: .mappedIfSafe)
-            // Check ZIP magic bytes (PK\x03\x04)
-            if data.count >= 4 {
-                let magic = Array(data.prefix(4))
-                let isZip = magic == [0x50, 0x4B, 0x03, 0x04]
-                lines.append("ZIP magic bytes: \(magic.map { String(format: "0x%02X", $0) }.joined(separator: " ")) (\(isZip ? "valid" : "INVALID - not a ZIP file"))")
-            } else {
-                lines.append("Error: File too small (\(data.count) bytes)")
-            }
-        } catch {
-            lines.append("Error reading file: \(error.localizedDescription)")
-        }
-
-        // Try to inspect the EPUB structure via Process (unzip -l)
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/zipinfo")
-        process.arguments = ["-1", url.path]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-        do {
-            try process.run()
-            process.waitUntilExit()
-            let outputData = pipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: outputData, encoding: .utf8) ?? ""
-
-            if process.terminationStatus == 0 {
-                let files = output.components(separatedBy: "\n").filter { !$0.isEmpty }
-                lines.append("ZIP entries: \(files.count)")
-
-                // Check for key EPUB files
-                let hasContainer = files.contains { $0.hasSuffix("META-INF/container.xml") }
-                let hasMimetype = files.contains { $0 == "mimetype" }
-                let opfFiles = files.filter { $0.hasSuffix(".opf") }
-
-                lines.append("Has mimetype: \(hasMimetype)")
-                lines.append("Has META-INF/container.xml: \(hasContainer)")
-                lines.append("OPF files: \(opfFiles.isEmpty ? "(none)" : opfFiles.joined(separator: ", "))")
-
-                // Show first 20 entries for context
-                let preview = files.prefix(20)
-                lines.append("\nFirst \(preview.count) ZIP entries:")
-                for entry in preview {
-                    lines.append("  \(entry)")
-                }
-                if files.count > 20 {
-                    lines.append("  ... and \(files.count - 20) more")
-                }
-            } else {
-                lines.append("zipinfo failed (exit \(process.terminationStatus)): \(output.prefix(500))")
-            }
-        } catch {
-            lines.append("Could not run zipinfo: \(error.localizedDescription)")
-        }
-
-        return lines.joined(separator: "\n")
+    private struct FallbackResult {
+        let contentDirectory: URL
+        let title: String?
+        let author: String?
+        let chapters: [Chapter]
+        let tableOfContents: [Chapter]
     }
 
-    // MARK: - Private
+    /// Manually parses an EPUB when EPUBKit fails (e.g. EPUB 3 without NCX TOC).
+    /// Extracts the ZIP, reads container.xml to find the OPF, then parses the OPF
+    /// for spine/manifest to build the chapter list.
+    private static func parseFallback(bookURL: URL) throws -> FallbackResult {
+        // 1. Unzip the EPUB
+        let extractDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CalibreRead-fallback")
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: extractDir, withIntermediateDirectories: true)
 
-    private func buildChapters() -> [Chapter] {
-        let spine = document.spine
-        let manifest = document.manifest
-        let contentDir = document.contentDirectory
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
+        process.arguments = ["-o", "-q", bookURL.path, "-d", extractDir.path]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        process.waitUntilExit()
 
+        guard process.terminationStatus == 0 else {
+            throw EPUBError.failedToParse(
+                parserError: "Failed to extract EPUB archive (unzip exit code \(process.terminationStatus))",
+                details: "Path: \(bookURL.path)"
+            )
+        }
+
+        // 2. Read container.xml to find OPF path
+        let containerURL = extractDir
+            .appendingPathComponent("META-INF")
+            .appendingPathComponent("container.xml")
+        let containerData = try Data(contentsOf: containerURL)
+        let containerXML = try XMLDocument(data: containerData)
+
+        // Find rootfile full-path — handle both namespaced and non-namespaced
+        let opfRelativePath: String
+        if let rootfiles = try containerXML.nodes(forXPath: "//*[local-name()='rootfile']").first as? XMLElement,
+           let fullPath = rootfiles.attribute(forName: "full-path")?.stringValue {
+            opfRelativePath = fullPath
+        } else {
+            throw EPUBError.failedToParse(
+                parserError: "Could not find rootfile in container.xml",
+                details: "Path: \(bookURL.path)"
+            )
+        }
+
+        let opfURL = extractDir.appendingPathComponent(opfRelativePath)
+        let contentDir = opfURL.deletingLastPathComponent()
+
+        // 3. Parse OPF
+        let opfData = try Data(contentsOf: opfURL)
+        let opfXML = try XMLDocument(data: opfData)
+
+        // Extract title and author from metadata
+        let titleNode = try opfXML.nodes(forXPath: "//*[local-name()='metadata']/*[local-name()='title']").first
+        let authorNode = try opfXML.nodes(forXPath: "//*[local-name()='metadata']/*[local-name()='creator']").first
+        let title = titleNode?.stringValue
+        let author = authorNode?.stringValue
+
+        // 4. Build manifest: id -> (href, mediaType)
+        let manifestNodes = try opfXML.nodes(forXPath: "//*[local-name()='manifest']/*[local-name()='item']")
+        var manifest: [String: (href: String, mediaType: String, properties: String?)] = [:]
+        for node in manifestNodes {
+            guard let element = node as? XMLElement,
+                  let id = element.attribute(forName: "id")?.stringValue,
+                  let href = element.attribute(forName: "href")?.stringValue else { continue }
+            let mediaType = element.attribute(forName: "media-type")?.stringValue ?? ""
+            let properties = element.attribute(forName: "properties")?.stringValue
+            manifest[id] = (href: href, mediaType: mediaType, properties: properties)
+        }
+
+        // 5. Build spine
+        let spineNodes = try opfXML.nodes(forXPath: "//*[local-name()='spine']/*[local-name()='itemref']")
+        var chapters: [Chapter] = []
+        for (index, node) in spineNodes.enumerated() {
+            guard let element = node as? XMLElement,
+                  let idref = element.attribute(forName: "idref")?.stringValue,
+                  let item = manifest[idref] else { continue }
+            let fileURL = contentDir.appendingPathComponent(item.href)
+            chapters.append(Chapter(
+                id: index,
+                title: "Chapter \(index + 1)",
+                href: item.href,
+                fileURL: fileURL
+            ))
+        }
+
+        // 6. Try to build TOC from EPUB 3 nav document
+        var toc: [Chapter] = []
+        let navItem = manifest.values.first { $0.properties?.contains("nav") == true }
+        if let navItem = navItem {
+            let navURL = contentDir.appendingPathComponent(navItem.href)
+            if let navData = try? Data(contentsOf: navURL),
+               let navDoc = try? XMLDocument(data: navData, options: [.documentTidyHTML]) {
+                // Find the <nav epub:type="toc"> element's <ol>
+                let navEntries = try? navDoc.nodes(forXPath: "//*[local-name()='nav']//*[local-name()='ol']/*[local-name()='li']")
+                if let entries = navEntries {
+                    for (index, node) in entries.enumerated() {
+                        guard let li = node as? XMLElement else { continue }
+                        let anchors = try? li.nodes(forXPath: ".//*[local-name()='a']")
+                        guard let anchor = anchors?.first as? XMLElement,
+                              let href = anchor.attribute(forName: "href")?.stringValue else { continue }
+                        let label = anchor.stringValue ?? "Chapter \(index + 1)"
+                        let baseHref = href.components(separatedBy: "#").first ?? href
+                        let fileURL = contentDir.appendingPathComponent(baseHref)
+                        toc.append(Chapter(
+                            id: index,
+                            title: label,
+                            href: href,
+                            fileURL: fileURL
+                        ))
+                    }
+                }
+            }
+        }
+
+        // Fall back to chapters if we couldn't parse the nav TOC
+        if toc.isEmpty {
+            toc = chapters
+        }
+
+        return FallbackResult(
+            contentDirectory: contentDir,
+            title: title,
+            author: author,
+            chapters: chapters,
+            tableOfContents: toc
+        )
+    }
+
+    // MARK: - Chapter building (from EPUBKit types)
+
+    private static func buildChapters(
+        spine: EPUBSpine,
+        manifest: EPUBManifest,
+        contentDir: URL
+    ) -> [Chapter] {
         var chapters: [Chapter] = []
         for (index, spineItem) in spine.items.enumerated() {
             let itemId = spineItem.idref
             if let manifestItem = manifest.items[itemId] {
                 let href = manifestItem.path
-                let fileURL = contentDir
-                    .appendingPathComponent(href)
-
+                let fileURL = contentDir.appendingPathComponent(href)
                 chapters.append(Chapter(
                     id: index,
                     title: "Chapter \(index + 1)",
@@ -165,18 +236,17 @@ final class EPUBService {
         return chapters
     }
 
-    private func buildTOC() -> [Chapter] {
-        let toc = document.tableOfContents
-        let contentDir = document.contentDirectory
-
-        guard let subTable = toc.subTable, !subTable.isEmpty else { return chapters }
+    private static func buildTOC(
+        toc: EPUBTableOfContents,
+        contentDir: URL,
+        fallbackChapters: [Chapter]
+    ) -> [Chapter] {
+        guard let subTable = toc.subTable, !subTable.isEmpty else { return fallbackChapters }
 
         return subTable.enumerated().map { index, item in
             let href = item.item ?? ""
             let baseHref = href.components(separatedBy: "#").first ?? href
-            let fileURL = contentDir
-                .appendingPathComponent(baseHref)
-
+            let fileURL = contentDir.appendingPathComponent(baseHref)
             return Chapter(
                 id: index,
                 title: item.label,
