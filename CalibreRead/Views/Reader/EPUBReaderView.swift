@@ -1,6 +1,9 @@
 import SwiftUI
 import SwiftData
 import AppKit
+import os.log
+
+private let readerLog = Logger(subsystem: "com.calibreread", category: "EPUBReaderView")
 
 struct EPUBReaderView: View {
     let bookURL: URL
@@ -387,7 +390,12 @@ struct EPUBReaderView: View {
 
     private func startPagination() {
         guard let service = epubService,
-              contentSize.width > 0, contentSize.height > 0 else { return }
+              contentSize.width > 0, contentSize.height > 0 else {
+            readerLog.warning("startPagination: skipped — epubService=\(self.epubService != nil), contentSize=\(self.contentSize.width)x\(self.contentSize.height)")
+            return
+        }
+
+        readerLog.info("startPagination: starting with \(service.chapters.count) chapters, contentSize=\(self.contentSize.width)x\(self.contentSize.height)")
 
         paginationTask?.cancel()
         sectionPageCounts = nil
@@ -396,7 +404,12 @@ struct EPUBReaderView: View {
         paginationTask = Task {
             // Small debounce for rapid changes (font size adjustment, window resize)
             try? await Task.sleep(for: .milliseconds(300))
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else {
+                readerLog.info("startPagination: cancelled after debounce")
+                return
+            }
+
+            readerLog.info("startPagination: creating paginator")
 
             let paginator = EPUBPaginator(
                 chapters: service.chapters,
@@ -408,13 +421,21 @@ struct EPUBReaderView: View {
 
             var counts: [Int] = []
             while let result = await paginator.measureNext() {
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled else {
+                    readerLog.info("startPagination: cancelled at chapter \(result.index)")
+                    return
+                }
                 counts.append(result.pageCount)
                 paginationProgress = result.index + 1
+                readerLog.info("startPagination: chapter \(result.index) done, pageCount=\(result.pageCount), progress=\(self.paginationProgress)/\(service.chapters.count)")
             }
 
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else {
+                readerLog.info("startPagination: cancelled after loop")
+                return
+            }
             sectionPageCounts = counts
+            readerLog.info("startPagination: complete! totalPages=\(counts.reduce(0, +))")
         }
     }
 

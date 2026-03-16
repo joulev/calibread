@@ -239,12 +239,16 @@ struct EPUBWebView: NSViewRepresentable {
                 // when navigating backward (goToFraction needs to run first)
                 setTimeout(function() {
                     CalibreReader.recalculate();
+                    console.log('[CalibreReader] recalculate done: totalPages=' + CalibreReader.totalPages + ' pageWidth=' + CalibreReader.pageWidth + ' scrollWidth=' + document.body.scrollWidth + ' innerWidth=' + window.innerWidth + ' innerHeight=' + window.innerHeight + ' bodyHeight=' + document.body.style.height + ' colWidth=' + document.body.style.columnWidth);
                     if (!window._CalibreWaitForFraction) {
                         document.body.style.opacity = '1';
                     }
                 }, 200);
                 // Second recalculation for images that load late
-                setTimeout(function() { CalibreReader.recalculate(); }, 800);
+                setTimeout(function() {
+                    CalibreReader.recalculate();
+                    console.log('[CalibreReader] late recalculate: totalPages=' + CalibreReader.totalPages + ' scrollWidth=' + document.body.scrollWidth);
+                }, 800);
 
                 // Recalculate on resize — hide content while layout settles
                 var resizeTimer = null;
