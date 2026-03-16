@@ -7,6 +7,11 @@ html {
     padding: 0;
 }
 
+/* Prevent scrollbar flash during chapter transitions */
+::-webkit-scrollbar {
+    display: none !important;
+}
+
 body {
     font-family: 'Iowan Old Style', 'Palatino', 'Georgia', serif;
     font-size: 18px;
