@@ -21,7 +21,8 @@ struct TableOfContentsView: View {
             Divider()
 
             List {
-                ForEach(chapters, id: \.id) { chapter in
+                ForEach(0..<chapters.count, id: \.self) { index in
+                    let chapter = chapters[index]
                     Button {
                         onSelect(chapter.id)
                     } label: {
