@@ -7,6 +7,7 @@ struct EPUBReaderView: View {
     let libraryRoot: URL
     let bookTitle: String
     let bookId: String
+    var onClose: (() -> Void)?
 
     @State private var epubService: EPUBService?
     @State private var currentChapterIndex = 0
@@ -17,15 +18,11 @@ struct EPUBReaderView: View {
     @State private var currentPage = 1
     @State private var totalPages = 1
     @State private var pageCommand: EPUBWebView.PageCommand = .none
-    @State private var showControls = false
-    @State private var showFontMenu = false
 
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ZStack {
-            // Background matching theme
             theme.swiftUIBackground
                 .ignoresSafeArea()
 
@@ -41,19 +38,19 @@ struct EPUBReaderView: View {
         .onAppear(perform: loadEPUB)
         .onDisappear(perform: saveProgress)
         .onKeyPress(.leftArrow) {
-            handlePrevPage()
+            pageCommand = .previous
             return .handled
         }
         .onKeyPress(.rightArrow) {
-            handleNextPage()
+            pageCommand = .next
             return .handled
         }
         .onKeyPress(.space) {
-            handleNextPage()
+            pageCommand = .next
             return .handled
         }
         .onKeyPress(.escape) {
-            dismiss()
+            onClose?()
             return .handled
         }
         .sheet(isPresented: $showTOC) {
@@ -74,21 +71,37 @@ struct EPUBReaderView: View {
     @ViewBuilder
     private func readerContent(service: EPUBService) -> some View {
         VStack(spacing: 0) {
-            // Top toolbar
             topBar(service: service)
 
-            // Main reading area
             EPUBWebView(
                 fileURL: service.chapters[currentChapterIndex].fileURL,
+                contentBaseURL: service.contentRootURL,
                 theme: theme,
                 fontSize: fontSize,
                 onPageInfo: { page, total in
-                    handlePageInfo(page: page, total: total, service: service)
+                    currentPage = page
+                    totalPages = total
+                },
+                onChapterEnd: { edge in
+                    switch edge {
+                    case .next:
+                        if currentChapterIndex < service.chapters.count - 1 {
+                            currentChapterIndex += 1
+                            currentPage = 1
+                            saveProgress()
+                        }
+                    case .previous:
+                        if currentChapterIndex > 0 {
+                            currentChapterIndex -= 1
+                            currentPage = 1
+                            pageCommand = .goTo(1.0)
+                            saveProgress()
+                        }
+                    }
                 },
                 pageCommand: $pageCommand
             )
 
-            // Bottom page indicator
             bottomBar(service: service)
         }
     }
@@ -97,7 +110,7 @@ struct EPUBReaderView: View {
 
     private func topBar(service: EPUBService) -> some View {
         HStack(spacing: 16) {
-            Button { dismiss() } label: {
+            Button { onClose?() } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 13, weight: .medium))
             }
@@ -167,7 +180,6 @@ struct EPUBReaderView: View {
 
     private func bottomBar(service: EPUBService) -> some View {
         HStack {
-            // Previous chapter
             Button {
                 navigateToChapter(currentChapterIndex - 1)
             } label: {
@@ -181,7 +193,6 @@ struct EPUBReaderView: View {
 
             Spacer()
 
-            // Chapter info
             if let tocEntry = currentTOCEntry(service: service) {
                 Text(tocEntry.title)
                     .font(.system(size: 11))
@@ -198,7 +209,6 @@ struct EPUBReaderView: View {
 
             Spacer()
 
-            // Next chapter
             Button {
                 navigateToChapter(currentChapterIndex + 1)
             } label: {
@@ -219,54 +229,10 @@ struct EPUBReaderView: View {
 
     private func currentTOCEntry(service: EPUBService) -> EPUBService.Chapter? {
         let currentFileURL = service.chapters[currentChapterIndex].fileURL
-        // Find the matching TOC entry for this chapter's file
         return service.tableOfContents.last { tocChapter in
             let tocBase = tocChapter.href.components(separatedBy: "#").first ?? tocChapter.href
             let currentBase = currentFileURL.lastPathComponent
             return tocBase.hasSuffix(currentBase) || currentBase.hasSuffix(tocBase)
-        }
-    }
-
-    // MARK: - Page Info Handler
-
-    private func handlePageInfo(page: Int, total: Int, service: EPUBService) {
-        if page == -1 {
-            // Next chapter signal from JS
-            handleNextChapter(service: service)
-        } else if page == -2 {
-            // Previous chapter signal from JS
-            handlePrevChapter(service: service)
-        } else {
-            currentPage = page
-            totalPages = total
-        }
-    }
-
-    // MARK: - Navigation
-
-    private func handleNextPage() {
-        pageCommand = .next
-    }
-
-    private func handlePrevPage() {
-        pageCommand = .previous
-    }
-
-    private func handleNextChapter(service: EPUBService) {
-        if currentChapterIndex < service.chapters.count - 1 {
-            currentChapterIndex += 1
-            currentPage = 1
-            saveProgress()
-        }
-    }
-
-    private func handlePrevChapter(service: EPUBService) {
-        if currentChapterIndex > 0 {
-            currentChapterIndex -= 1
-            currentPage = 1
-            // Go to last page of previous chapter
-            pageCommand = .goTo(1.0)
-            saveProgress()
         }
     }
 

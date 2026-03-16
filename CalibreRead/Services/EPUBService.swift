@@ -52,6 +52,12 @@ final class EPUBService {
         document.author ?? "Unknown Author"
     }
 
+    /// The root content directory of the parsed EPUB — used to grant WKWebView
+    /// read access so that images and other resources load correctly.
+    var contentRootURL: URL {
+        document.contentDirectory
+    }
+
     func chapterFileURL(for chapter: Chapter) -> URL {
         chapter.fileURL
     }

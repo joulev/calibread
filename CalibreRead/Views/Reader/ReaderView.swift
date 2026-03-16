@@ -3,7 +3,7 @@ import SwiftUI
 struct ReaderView: View {
     let book: CalibreBook
     let libraryRoot: URL
-    @Environment(\.dismiss) private var dismiss
+    let onClose: () -> Void
 
     var body: some View {
         Group {
@@ -11,7 +11,7 @@ struct ReaderView: View {
                 switch format.format {
                 case "EPUB":
                     if let url = book.fileURL(libraryRoot: libraryRoot, format: format) {
-                        EPUBReaderView(bookURL: url, libraryRoot: libraryRoot, bookTitle: book.title, bookId: book.uuid)
+                        EPUBReaderView(bookURL: url, libraryRoot: libraryRoot, bookTitle: book.title, bookId: book.uuid, onClose: onClose)
                     } else {
                         errorView("Could not locate EPUB file.")
                     }
@@ -38,7 +38,7 @@ struct ReaderView: View {
             Text(message)
                 .font(.title3)
                 .foregroundStyle(.secondary)
-            Button("Close") { dismiss() }
+            Button("Close") { onClose() }
                 .buttonStyle(.bordered)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

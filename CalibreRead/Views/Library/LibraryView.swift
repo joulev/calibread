@@ -4,7 +4,7 @@ struct LibraryView: View {
     @Environment(LibraryManager.self) private var library
     @State private var selectedBook: CalibreBook?
     @State private var viewMode: ViewMode = .grid
-    @State private var openedBook: CalibreBook?
+    @Binding var openedBook: CalibreBook?
 
     enum ViewMode: String, CaseIterable {
         case grid = "Grid"
@@ -84,10 +84,6 @@ struct LibraryView: View {
                 }
                 .inspectorColumnWidth(min: 280, ideal: 320, max: 400)
             }
-        }
-        .sheet(item: $openedBook) { book in
-            ReaderView(book: book, libraryRoot: library.libraryURL!)
-                .frame(minWidth: 700, minHeight: 500)
         }
     }
 
