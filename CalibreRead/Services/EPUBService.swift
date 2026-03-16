@@ -28,12 +28,16 @@ final class EPUBService {
 
         self.extractedURL = tempDir
 
-        // Parse EPUB
-        guard let doc = EPUBDocument(url: bookURL) else {
-            let details = EPUBService.gatherDiagnostics(for: bookURL)
-            throw EPUBError.failedToParse(details: details)
+        // Parse EPUB using EPUBParser directly to get real error details
+        // (EPUBDocument(url:) uses try? which swallows the actual error)
+        do {
+            self.document = try EPUBParser().parse(documentAt: bookURL)
+        } catch {
+            throw EPUBError.failedToParse(
+                parserError: "\(error)",
+                details: EPUBService.gatherDiagnostics(for: bookURL)
+            )
         }
-        self.document = doc
 
         // Build chapter list from spine
         self.chapters = buildChapters()
@@ -184,12 +188,13 @@ final class EPUBService {
 }
 
 enum EPUBError: LocalizedError {
-    case failedToParse(details: String)
+    case failedToParse(parserError: String, details: String)
     case chapterNotFound
 
     var errorDescription: String? {
         switch self {
-        case .failedToParse(let details): return "Failed to parse EPUB file.\n\n\(details)"
+        case .failedToParse(let parserError, let details):
+            return "Failed to parse EPUB file.\n\nParser error: \(parserError)\n\n\(details)"
         case .chapterNotFound: return "Chapter not found."
         }
     }
