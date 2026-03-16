@@ -1,6 +1,32 @@
 import SwiftUI
 import SwiftData
 import AppKit
+import os.log
+
+/// Diagnostic logger that writes to both os_log (Console.app) and a file on disk.
+/// The file is at ~/Library/Logs/CalibreRead-debug.log.
+private func debugLog(_ message: String) {
+    let logger = Logger(subsystem: "com.calibreread.debug", category: "pagination")
+    logger.warning("\(message, privacy: .public)")
+    NSLog("%@", message)
+
+    // Also write to a file as a failsafe
+    let logFile = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/Logs/CalibreRead-debug.log")
+    let timestamp = ISO8601DateFormatter().string(from: Date())
+    let line = "[\(timestamp)] \(message)\n"
+    if let data = line.data(using: .utf8) {
+        if FileManager.default.fileExists(atPath: logFile.path) {
+            if let handle = try? FileHandle(forWritingTo: logFile) {
+                handle.seekToEndOfFile()
+                handle.write(data)
+                handle.closeFile()
+            }
+        } else {
+            try? data.write(to: logFile)
+        }
+    }
+}
 
 struct EPUBReaderView: View {
     let bookURL: URL
@@ -25,8 +51,18 @@ struct EPUBReaderView: View {
     // Pagination state
     @State private var sectionPageCounts: [Int]? = nil
     @State private var paginationProgress = 0
-    @State private var paginationTask: Task<Void, Never>?
     @State private var contentSize: CGSize = .zero
+
+    /// Combines all values that should trigger a pagination restart.
+    private var paginationTrigger: PaginationTrigger {
+        PaginationTrigger(
+            hasService: epubService != nil,
+            width: contentSize.width,
+            height: contentSize.height,
+            fontSize: fontSize,
+            theme: theme
+        )
+    }
 
     @Environment(\.modelContext) private var modelContext
 
@@ -122,7 +158,6 @@ struct EPUBReaderView: View {
         .onAppear(perform: loadEPUB)
         .onDisappear {
             saveProgress()
-            paginationTask?.cancel()
         }
         .onKeyPress(.leftArrow) {
             pageController.previousPage()
@@ -140,19 +175,8 @@ struct EPUBReaderView: View {
             onClose?()
             return .handled
         }
-        .onChange(of: fontSize) { _, _ in
-            startPagination()
-        }
-        .onChange(of: theme) { _, _ in
-            startPagination()
-        }
-        .onChange(of: contentSize) { _, newSize in
-            NSLog("%@", "[EPUBReader] contentSize changed to \(newSize.width)x\(newSize.height), epubService=\(epubService != nil)")
-            startPagination()
-        }
-        .onChange(of: epubService?.chapters.count) { _, _ in
-            NSLog("%@", "[EPUBReader] epubService changed, contentSize=\(contentSize.width)x\(contentSize.height)")
-            startPagination()
+        .task(id: paginationTrigger) {
+            await runPagination()
         }
     }
 
@@ -390,55 +414,57 @@ struct EPUBReaderView: View {
 
     // MARK: - Pagination
 
-    private func startPagination() {
+    /// Runs pagination as a structured task. Called by `.task(id: paginationTrigger)`.
+    /// SwiftUI automatically cancels this when `paginationTrigger` changes (e.g. font
+    /// size, theme, window resize) and restarts with the new values.
+    private func runPagination() async {
         guard let service = epubService,
               contentSize.width > 0, contentSize.height > 0 else {
-            NSLog("%@", "[EPUBReader] startPagination: SKIPPED — epubService=\(epubService != nil), contentSize=\(contentSize.width)x\(contentSize.height)")
+            debugLog("[EPUBReader] runPagination: SKIPPED — epubService=\(epubService != nil), contentSize=\(contentSize.width)x\(contentSize.height)")
             return
         }
 
-        NSLog("%@", "[EPUBReader] startPagination: STARTING with \(service.chapters.count) chapters, contentSize=\(contentSize.width)x\(contentSize.height)")
+        debugLog("[EPUBReader] runPagination: STARTING with \(service.chapters.count) chapters, contentSize=\(contentSize.width)x\(contentSize.height), fontSize=\(fontSize), theme=\(theme)")
 
-        paginationTask?.cancel()
         sectionPageCounts = nil
         paginationProgress = 0
 
-        paginationTask = Task {
-            // Small debounce for rapid changes (font size adjustment, window resize)
-            try? await Task.sleep(for: .milliseconds(300))
-            guard !Task.isCancelled else {
-                NSLog("%@", "[EPUBReader] startPagination: cancelled after debounce")
-                return
-            }
-
-            NSLog("%@", "[EPUBReader] startPagination: creating paginator")
-
-            let paginator = EPUBPaginator(
-                chapters: service.chapters,
-                contentBaseURL: service.contentRootURL,
-                theme: theme,
-                fontSize: fontSize,
-                viewportSize: contentSize
-            )
-
-            var counts: [Int] = []
-            while let result = await paginator.measureNext() {
-                guard !Task.isCancelled else {
-                    NSLog("%@", "[EPUBReader] startPagination: cancelled at chapter \(result.index)")
-                    return
-                }
-                counts.append(result.pageCount)
-                paginationProgress = result.index + 1
-                NSLog("%@", "[EPUBReader] startPagination: chapter \(result.index) done, pageCount=\(result.pageCount), progress=\(paginationProgress)/\(service.chapters.count)")
-            }
-
-            guard !Task.isCancelled else {
-                NSLog("%@", "[EPUBReader] startPagination: cancelled after loop")
-                return
-            }
-            sectionPageCounts = counts
-            NSLog("%@", "[EPUBReader] startPagination: COMPLETE! totalPages=\(counts.reduce(0, +))")
+        // Small debounce for rapid changes (font size adjustment, window resize).
+        // If the trigger changes again during this sleep, SwiftUI cancels this
+        // task and starts a new one automatically.
+        try? await Task.sleep(for: .milliseconds(300))
+        guard !Task.isCancelled else {
+            debugLog("[EPUBReader] runPagination: cancelled after debounce")
+            return
         }
+
+        debugLog("[EPUBReader] runPagination: creating paginator")
+
+        let paginator = EPUBPaginator(
+            chapters: service.chapters,
+            contentBaseURL: service.contentRootURL,
+            theme: theme,
+            fontSize: fontSize,
+            viewportSize: contentSize
+        )
+
+        var counts: [Int] = []
+        while let result = await paginator.measureNext() {
+            guard !Task.isCancelled else {
+                debugLog("[EPUBReader] runPagination: cancelled at chapter \(result.index)")
+                return
+            }
+            counts.append(result.pageCount)
+            paginationProgress = result.index + 1
+            debugLog("[EPUBReader] runPagination: chapter \(result.index) done, pageCount=\(result.pageCount), progress=\(paginationProgress)/\(service.chapters.count)")
+        }
+
+        guard !Task.isCancelled else {
+            debugLog("[EPUBReader] runPagination: cancelled after loop")
+            return
+        }
+        sectionPageCounts = counts
+        debugLog("[EPUBReader] runPagination: COMPLETE! totalPages=\(counts.reduce(0, +))")
     }
 
     // MARK: - Actions
@@ -556,4 +582,15 @@ private struct ContentSizeKey: PreferenceKey {
     static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
         value = nextValue()
     }
+}
+
+// MARK: - Pagination Trigger
+
+/// Hashable value combining everything that should restart pagination.
+private struct PaginationTrigger: Equatable {
+    let hasService: Bool
+    let width: CGFloat
+    let height: CGFloat
+    let fontSize: Int
+    let theme: ReaderTheme
 }
