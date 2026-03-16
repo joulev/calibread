@@ -1,1 +1,34 @@
-This aims to be a fully native, SwiftUI-powered application running on macOS serving as an ereader for books already installed inside a Calibre library already installed and existing in the file system.
+# CalibreRead
+
+A native macOS SwiftUI ereader for Calibre libraries. Opens your existing Calibre library folder and lets you read EPUB and PDF books with a clean, native interface. Read-only — never modifies your library.
+
+## Features
+
+- **Library browser** — grid and list views with cover art, search, sort, and sidebar filtering by author/series/tag
+- **EPUB reader** — WKWebView rendering with light/sepia/dark themes, font size controls, chapter navigation, and table of contents
+- **PDF reader** — native PDFKit with page tracking
+- **Reading progress** — automatically saves and restores your position in each book
+- **Calibre compatible** — reads `metadata.db` directly, supports all Calibre metadata (authors, series, tags, ratings, descriptions)
+
+## Requirements
+
+- macOS 26 (Tahoe)
+- A Calibre library on your filesystem
+
+## Install
+
+Download `CalibreRead.zip` from the latest [GitHub Release](../../releases/latest), unzip, then run once in Terminal:
+
+```bash
+xattr -cr CalibreRead.app
+```
+
+Move to `/Applications` and open.
+
+## Build from Source
+
+Open `CalibreRead.xcodeproj` in Xcode 26. SPM dependencies (SQLite.swift, EPUBKit) resolve automatically. Build and run.
+
+## How It Works
+
+The app reads your Calibre library's `metadata.db` (SQLite) to get book metadata, covers, and file paths. EPUB files are parsed with EPUBKit and rendered in a WKWebView with custom CSS injection. PDFs are rendered with native PDFKit. Reading progress is stored in the app's own SwiftData database — your Calibre library is never modified.
