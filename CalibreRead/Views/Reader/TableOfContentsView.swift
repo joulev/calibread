@@ -3,7 +3,6 @@ import SwiftUI
 struct TableOfContentsView: View {
     let chapters: [EPUBService.Chapter]
     let currentIndex: Int
-    let theme: ReaderTheme
     let onSelect: (Int) -> Void
 
     var body: some View {
@@ -25,7 +24,6 @@ struct TableOfContentsView: View {
                                 TocPopoverRow(
                                     chapter: chapters[index],
                                     isCurrent: chapters[index].id == currentIndex,
-                                    theme: theme,
                                     onSelect: onSelect
                                 )
                             }
@@ -38,14 +36,13 @@ struct TableOfContentsView: View {
                 }
             }
         }
-        .frame(width: 380, height: 500)
+        .frame(width: 340, height: 500)
     }
 }
 
 private struct TocPopoverRow: View {
     let chapter: EPUBService.Chapter
     let isCurrent: Bool
-    let theme: ReaderTheme
     let onSelect: (Int) -> Void
 
     var body: some View {
@@ -58,10 +55,6 @@ private struct TocPopoverRow: View {
                     .lineLimit(2)
 
                 Spacer()
-
-                Text("\(chapter.id + 1)")
-                    .font(.system(size: 14))
-                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
