@@ -33,6 +33,15 @@ struct EPUBWebView: NSViewRepresentable {
 
         let userController = WKUserContentController()
         userController.add(context.coordinator, name: "pageHandler")
+
+        // Hide body immediately on every navigation to prevent unstyled flash
+        let hideScript = WKUserScript(
+            source: "document.addEventListener('DOMContentLoaded', function() { document.body.style.opacity = '0'; });",
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        userController.addUserScript(hideScript)
+
         config.userContentController = userController
 
         let webView = WKWebView(frame: .zero, configuration: config)
@@ -52,7 +61,9 @@ struct EPUBWebView: NSViewRepresentable {
         context.coordinator.onChapterEnd = onChapterEnd
         context.coordinator.contentBaseURL = contentBaseURL
 
-        if context.coordinator.currentURL != fileURL {
+        let isNewChapter = context.coordinator.currentURL != fileURL
+
+        if isNewChapter {
             context.coordinator.theme = theme
             context.coordinator.fontSize = fontSize
             loadContent(in: webView)
@@ -65,13 +76,22 @@ struct EPUBWebView: NSViewRepresentable {
         // Handle page commands
         switch pageCommand {
         case .next:
-            webView.evaluateJavaScript("CalibreReader.nextPage()", completionHandler: nil)
+            if !isNewChapter {
+                webView.evaluateJavaScript("CalibreReader.nextPage()", completionHandler: nil)
+            }
             DispatchQueue.main.async { pageCommand = .none }
         case .previous:
-            webView.evaluateJavaScript("CalibreReader.prevPage()", completionHandler: nil)
+            if !isNewChapter {
+                webView.evaluateJavaScript("CalibreReader.prevPage()", completionHandler: nil)
+            }
             DispatchQueue.main.async { pageCommand = .none }
         case .goTo(let fraction):
-            webView.evaluateJavaScript("CalibreReader.goToFraction(\(fraction))", completionHandler: nil)
+            if isNewChapter {
+                // Chapter is loading; defer the goTo until didFinish
+                context.coordinator.pendingFraction = fraction
+            } else {
+                webView.evaluateJavaScript("CalibreReader.goToFraction(\(fraction))", completionHandler: nil)
+            }
             DispatchQueue.main.async { pageCommand = .none }
         case .none:
             break
@@ -110,6 +130,7 @@ struct EPUBWebView: NSViewRepresentable {
         var onChapterEnd: ((ChapterEdge) -> Void)?
         var theme: ReaderTheme = .light
         var fontSize: Int = 18
+        var pendingFraction: Double?
 
         init(onPageInfo: ((Int, Int) -> Void)?, onChapterEnd: ((ChapterEdge) -> Void)?) {
             self.onPageInfo = onPageInfo
@@ -218,8 +239,11 @@ struct EPUBWebView: NSViewRepresentable {
 
                 window.CalibreReader = CalibreReader;
 
-                // Initial calculation after layout settles
-                setTimeout(function() { CalibreReader.recalculate(); }, 200);
+                // Initial calculation after layout settles, then reveal
+                setTimeout(function() {
+                    CalibreReader.recalculate();
+                    document.body.style.opacity = '1';
+                }, 200);
                 // Second recalculation for images that load late
                 setTimeout(function() { CalibreReader.recalculate(); }, 800);
 
@@ -261,6 +285,13 @@ struct EPUBWebView: NSViewRepresentable {
             })();
             """
             webView.evaluateJavaScript(setupJS, completionHandler: nil)
+
+            // Apply pending fraction (e.g., go to last page when navigating backward)
+            if let fraction = pendingFraction {
+                pendingFraction = nil
+                let goToJS = "setTimeout(function() { CalibreReader.goToFraction(\(fraction)); }, 250);"
+                webView.evaluateJavaScript(goToJS, completionHandler: nil)
+            }
         }
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -322,10 +353,14 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
             hyphens: auto !important;
         }
         img {
+            display: block !important;
             max-width: 100% !important;
-            max-height: 90vh !important;
+            max-height: 85vh !important;
+            width: auto !important;
             height: auto !important;
             object-fit: contain !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
             break-inside: avoid !important;
         }
         p {
@@ -414,8 +449,8 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
 
     var swiftUISecondary: Color {
         switch self {
-        case .light: return Color(red: 0.56, green: 0.56, blue: 0.58)
-        case .sepia: return Color(red: 0.56, green: 0.47, blue: 0.36)
+        case .light: return Color(red: 0.35, green: 0.35, blue: 0.37)
+        case .sepia: return Color(red: 0.40, green: 0.33, blue: 0.24)
         case .dark: return Color(red: 0.56, green: 0.56, blue: 0.58)
         }
     }

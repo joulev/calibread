@@ -174,6 +174,9 @@ struct EPUBReaderView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
         .background(theme.swiftUIBackground)
+        .overlay(alignment: .bottom) {
+            Divider().opacity(0.5)
+        }
     }
 
     // MARK: - Bottom Bar
@@ -223,6 +226,9 @@ struct EPUBReaderView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
         .background(theme.swiftUIBackground)
+        .overlay(alignment: .top) {
+            Divider().opacity(0.5)
+        }
     }
 
     // MARK: - Helpers
