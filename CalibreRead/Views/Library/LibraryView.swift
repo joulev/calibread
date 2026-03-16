@@ -43,12 +43,14 @@ struct LibraryView: View {
                     .padding()
                 }
             case .list:
-                List(library.filteredBooks, id: \.id, selection: $selectedBook) { book in
-                    BookListRow(book: book, libraryRoot: library.libraryURL!)
-                        .tag(book)
-                        .onTapGesture(count: 2) {
-                            openedBook = book
-                        }
+                List(selection: $selectedBook) {
+                    ForEach(library.filteredBooks, id: \.id) { book in
+                        BookListRow(book: book, libraryRoot: library.libraryURL!)
+                            .tag(book)
+                            .onTapGesture(count: 2) {
+                                openedBook = book
+                            }
+                    }
                 }
                 .listStyle(.inset)
             }
