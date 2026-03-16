@@ -1,9 +1,6 @@
 import SwiftUI
 import SwiftData
 import AppKit
-import os.log
-
-private let readerLog = Logger(subsystem: "com.calibreread", category: "EPUBReaderView")
 
 struct EPUBReaderView: View {
     let bookURL: URL
@@ -149,7 +146,12 @@ struct EPUBReaderView: View {
         .onChange(of: theme) { _, _ in
             startPagination()
         }
-        .onChange(of: contentSize) { _, _ in
+        .onChange(of: contentSize) { _, newSize in
+            print("[EPUBReader] contentSize changed to \(newSize.width)x\(newSize.height), epubService=\(epubService != nil)")
+            startPagination()
+        }
+        .onChange(of: epubService?.chapters.count) { _, _ in
+            print("[EPUBReader] epubService changed, contentSize=\(contentSize.width)x\(contentSize.height)")
             startPagination()
         }
     }
@@ -391,11 +393,11 @@ struct EPUBReaderView: View {
     private func startPagination() {
         guard let service = epubService,
               contentSize.width > 0, contentSize.height > 0 else {
-            readerLog.warning("startPagination: skipped — epubService=\(self.epubService != nil), contentSize=\(self.contentSize.width)x\(self.contentSize.height)")
+            print("[EPUBReader] startPagination: SKIPPED — epubService=\(epubService != nil), contentSize=\(contentSize.width)x\(contentSize.height)")
             return
         }
 
-        readerLog.info("startPagination: starting with \(service.chapters.count) chapters, contentSize=\(self.contentSize.width)x\(self.contentSize.height)")
+        print("[EPUBReader] startPagination: STARTING with \(service.chapters.count) chapters, contentSize=\(contentSize.width)x\(contentSize.height)")
 
         paginationTask?.cancel()
         sectionPageCounts = nil
@@ -405,11 +407,11 @@ struct EPUBReaderView: View {
             // Small debounce for rapid changes (font size adjustment, window resize)
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else {
-                readerLog.info("startPagination: cancelled after debounce")
+                print("[EPUBReader] startPagination: cancelled after debounce")
                 return
             }
 
-            readerLog.info("startPagination: creating paginator")
+            print("[EPUBReader] startPagination: creating paginator")
 
             let paginator = EPUBPaginator(
                 chapters: service.chapters,
@@ -422,20 +424,20 @@ struct EPUBReaderView: View {
             var counts: [Int] = []
             while let result = await paginator.measureNext() {
                 guard !Task.isCancelled else {
-                    readerLog.info("startPagination: cancelled at chapter \(result.index)")
+                    print("[EPUBReader] startPagination: cancelled at chapter \(result.index)")
                     return
                 }
                 counts.append(result.pageCount)
                 paginationProgress = result.index + 1
-                readerLog.info("startPagination: chapter \(result.index) done, pageCount=\(result.pageCount), progress=\(self.paginationProgress)/\(service.chapters.count)")
+                print("[EPUBReader] startPagination: chapter \(result.index) done, pageCount=\(result.pageCount), progress=\(paginationProgress)/\(service.chapters.count)")
             }
 
             guard !Task.isCancelled else {
-                readerLog.info("startPagination: cancelled after loop")
+                print("[EPUBReader] startPagination: cancelled after loop")
                 return
             }
             sectionPageCounts = counts
-            readerLog.info("startPagination: complete! totalPages=\(counts.reduce(0, +))")
+            print("[EPUBReader] startPagination: COMPLETE! totalPages=\(counts.reduce(0, +))")
         }
     }
 
