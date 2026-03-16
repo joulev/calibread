@@ -59,7 +59,7 @@ private struct TocRow: View {
                 Spacer()
                 if isCurrent {
                     Image(systemName: "checkmark")
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                 }
             }
             .padding(.horizontal)
