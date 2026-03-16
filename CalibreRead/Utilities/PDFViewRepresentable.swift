@@ -32,6 +32,7 @@ struct PDFReaderKitView: NSViewRepresentable {
         context.coordinator.onPageChanged = onPageChanged
     }
 
+    @MainActor
     class Coordinator: NSObject {
         var pdfView: PDFView?
         var onPageChanged: ((Int, Int) -> Void)?

@@ -21,15 +21,15 @@ struct TableOfContentsView: View {
             Divider()
 
             List {
-                ForEach(Array(chapters.enumerated()), id: \.element.id) { index, chapter in
+                ForEach(chapters) { chapter in
                     Button {
-                        onSelect(index)
+                        onSelect(chapter.id)
                     } label: {
                         HStack {
                             Text(chapter.title)
-                                .fontWeight(index == currentIndex ? .semibold : .regular)
+                                .fontWeight(chapter.id == currentIndex ? .semibold : .regular)
                             Spacer()
-                            if index == currentIndex {
+                            if chapter.id == currentIndex {
                                 Image(systemName: "checkmark")
                                     .foregroundStyle(.accentColor)
                             }
