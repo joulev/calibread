@@ -62,7 +62,11 @@ final class LibraryManager {
 
         switch sortOrder {
         case .title:
-            result.sort { $0.sortTitle.localizedCaseInsensitiveCompare($1.sortTitle) == .orderedAscending }
+            if selectedSeries != nil {
+                result.sort { $0.seriesIndex < $1.seriesIndex }
+            } else {
+                result.sort { $0.sortTitle.localizedCaseInsensitiveCompare($1.sortTitle) == .orderedAscending }
+            }
         case .author:
             result.sort { $0.authorSort.localizedCaseInsensitiveCompare($1.authorSort) == .orderedAscending }
         case .dateAdded:
