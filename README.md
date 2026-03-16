@@ -1,0 +1,1 @@
+This aims to be a fully native, SwiftUI-powered application running on macOS serving as an ereader for books already installed inside a Calibre library already installed and existing in the file system.
