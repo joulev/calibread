@@ -73,10 +73,9 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
         let index = currentIndex
         currentIndex += 1
 
-        webView.loadFileURL(chapter.fileURL, allowingReadAccessTo: contentBaseURL)
-
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
             self.navigationContinuation = cont
+            webView.loadFileURL(chapter.fileURL, allowingReadAccessTo: contentBaseURL)
         }
 
         // Brief delay for images to affect layout
