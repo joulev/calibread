@@ -353,7 +353,7 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
         body {
             font-family: 'Iowan Old Style', 'Palatino', 'Georgia', serif !important;
             font-size: \(fontSize)px !important;
-            line-height: 1.7 !important;
+            line-height: 1.5 !important;
             letter-spacing: 0.01em !important;
             word-spacing: 0.05em !important;
             text-rendering: optimizeLegibility !important;
@@ -383,9 +383,6 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
             margin: 0 0 0.3em 0 !important;
             orphans: 2 !important;
             widows: 2 !important;
-        }
-        p:first-child, h1 + p, h2 + p, h3 + p, h4 + p, hr + p, blockquote + p {
-            text-indent: 0 !important;
         }
         h1, h2, h3, h4, h5, h6 {
             line-height: 1.3 !important;

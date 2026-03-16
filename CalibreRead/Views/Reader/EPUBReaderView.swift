@@ -46,6 +46,7 @@ struct EPUBReaderView: View {
         }
         .navigationTitle(bookTitle)
         .toolbarTitleDisplayMode(.inline)
+        .preferredColorScheme(theme == .dark ? .dark : .light)
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
                 ControlGroup {
@@ -99,7 +100,9 @@ struct EPUBReaderView: View {
     private func readerContent(service: EPUBService) -> some View {
         VStack(spacing: 0) {
             // Main content area with side navigation arrows
-            ZStack {
+            HStack(spacing: 0) {
+                navigationArrow(isLeft: true)
+
                 EPUBWebView(
                     fileURL: service.chapters[currentChapterIndex].fileURL,
                     contentBaseURL: service.contentRootURL,
@@ -129,12 +132,7 @@ struct EPUBReaderView: View {
                     pageCommand: $pageCommand
                 )
 
-                // Side navigation arrows
-                HStack(spacing: 0) {
-                    navigationArrow(isLeft: true)
-                    Spacer()
-                    navigationArrow(isLeft: false)
-                }
+                navigationArrow(isLeft: false)
             }
 
             bottomBar(service: service)
