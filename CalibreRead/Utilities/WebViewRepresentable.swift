@@ -32,6 +32,7 @@ struct EPUBWebView: NSViewRepresentable {
     let controller: EPUBPageController
     let onPageInfo: ((Int, Int) -> Void)?  // (currentPage, totalPages)
     let onChapterEnd: ((ChapterEdge) -> Void)?
+    let onContentReadyChanged: ((Bool) -> Void)?
 
     enum ChapterEdge {
         case next
@@ -39,7 +40,7 @@ struct EPUBWebView: NSViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onPageInfo: onPageInfo, onChapterEnd: onChapterEnd)
+        Coordinator(onPageInfo: onPageInfo, onChapterEnd: onChapterEnd, onContentReadyChanged: onContentReadyChanged)
     }
 
     func makeNSView(context: Context) -> WKWebView {
@@ -51,7 +52,12 @@ struct EPUBWebView: NSViewRepresentable {
 
         // Hide body immediately on every navigation to prevent unstyled flash
         let hideScript = WKUserScript(
-            source: "document.addEventListener('DOMContentLoaded', function() { document.body.style.opacity = '0'; });",
+            source: """
+            document.addEventListener('DOMContentLoaded', function() {
+                document.body.style.opacity = '0';
+                window.webkit.messageHandlers.pageHandler.postMessage({ action: 'contentHidden' });
+            });
+            """,
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         )
@@ -78,6 +84,7 @@ struct EPUBWebView: NSViewRepresentable {
     func updateNSView(_ webView: WKWebView, context: Context) {
         context.coordinator.onPageInfo = onPageInfo
         context.coordinator.onChapterEnd = onChapterEnd
+        context.coordinator.onContentReadyChanged = onContentReadyChanged
         context.coordinator.contentBaseURL = contentBaseURL
         context.coordinator.controller = controller
 
@@ -128,12 +135,14 @@ struct EPUBWebView: NSViewRepresentable {
         var controller: EPUBPageController?
         var onPageInfo: ((Int, Int) -> Void)?
         var onChapterEnd: ((ChapterEdge) -> Void)?
+        var onContentReadyChanged: ((Bool) -> Void)?
         var theme: ReaderTheme = .light
         var fontSize: Int = 18
 
-        init(onPageInfo: ((Int, Int) -> Void)?, onChapterEnd: ((ChapterEdge) -> Void)?) {
+        init(onPageInfo: ((Int, Int) -> Void)?, onChapterEnd: ((ChapterEdge) -> Void)?, onContentReadyChanged: ((Bool) -> Void)?) {
             self.onPageInfo = onPageInfo
             self.onChapterEnd = onChapterEnd
+            self.onContentReadyChanged = onContentReadyChanged
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -206,6 +215,7 @@ struct EPUBWebView: NSViewRepresentable {
                     },
 
                     nextPage: function() {
+                        if (document.body.style.opacity === '0') return;
                         if (this.currentPage < this.totalPages - 1) {
                             this.goToPage(this.currentPage + 1);
                         } else {
@@ -214,6 +224,7 @@ struct EPUBWebView: NSViewRepresentable {
                     },
 
                     prevPage: function() {
+                        if (document.body.style.opacity === '0') return;
                         if (this.currentPage > 0) {
                             this.goToPage(this.currentPage - 1);
                         } else {
@@ -241,6 +252,7 @@ struct EPUBWebView: NSViewRepresentable {
                     CalibreReader.recalculate();
                     if (!window._CalibreWaitForFraction) {
                         document.body.style.opacity = '1';
+                        window.webkit.messageHandlers.pageHandler.postMessage({ action: 'contentReady' });
                     }
                 }, 200);
                 // Second recalculation for images that load late
@@ -250,10 +262,12 @@ struct EPUBWebView: NSViewRepresentable {
                 var resizeTimer = null;
                 window.addEventListener('resize', function() {
                     document.body.style.opacity = '0';
+                    window.webkit.messageHandlers.pageHandler.postMessage({ action: 'contentHidden' });
                     clearTimeout(resizeTimer);
                     resizeTimer = setTimeout(function() {
                         CalibreReader.recalculate();
                         document.body.style.opacity = '1';
+                        window.webkit.messageHandlers.pageHandler.postMessage({ action: 'contentReady' });
                     }, 150);
                 });
 
@@ -268,6 +282,7 @@ struct EPUBWebView: NSViewRepresentable {
 
                 // Handle keyboard navigation within the webview
                 document.addEventListener('keydown', function(e) {
+                    if (document.body.style.opacity === '0') return;
                     if (e.key === 'ArrowRight' || e.key === ' ') {
                         e.preventDefault();
                         CalibreReader.nextPage();
@@ -297,6 +312,7 @@ struct EPUBWebView: NSViewRepresentable {
                 setTimeout(function() {
                     CalibreReader.goToFraction(\(fraction));
                     document.body.style.opacity = '1';
+                    window.webkit.messageHandlers.pageHandler.postMessage({ action: 'contentReady' });
                 }, 250);
                 """
                 webView.evaluateJavaScript(goToJS, completionHandler: nil)
@@ -313,6 +329,10 @@ struct EPUBWebView: NSViewRepresentable {
                         onChapterEnd?(.next)
                     } else if action == "prevChapter" {
                         onChapterEnd?(.previous)
+                    } else if action == "contentHidden" {
+                        onContentReadyChanged?(false)
+                    } else if action == "contentReady" {
+                        onContentReadyChanged?(true)
                     }
                 }
             }

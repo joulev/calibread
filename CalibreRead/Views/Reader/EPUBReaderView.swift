@@ -21,6 +21,7 @@ struct EPUBReaderView: View {
     @State private var pageController = EPUBPageController()
     @State private var isHoveringLeft = false
     @State private var isHoveringRight = false
+    @State private var isContentReady = false
 
     // Pagination state
     @State private var sectionPageCounts: [Int]? = nil
@@ -125,14 +126,17 @@ struct EPUBReaderView: View {
             paginationTask?.cancel()
         }
         .onKeyPress(.leftArrow) {
+            guard isContentReady else { return .handled }
             pageController.previousPage()
             return .handled
         }
         .onKeyPress(.rightArrow) {
+            guard isContentReady else { return .handled }
             pageController.nextPage()
             return .handled
         }
         .onKeyPress(.space) {
+            guard isContentReady else { return .handled }
             pageController.nextPage()
             return .handled
         }
@@ -177,6 +181,7 @@ struct EPUBReaderView: View {
                             }
                         },
                         onChapterEnd: { edge in
+                            isContentReady = false
                             switch edge {
                             case .next:
                                 if currentChapterIndex < service.chapters.count - 1 {
@@ -192,6 +197,9 @@ struct EPUBReaderView: View {
                                     saveProgress()
                                 }
                             }
+                        },
+                        onContentReadyChanged: { ready in
+                            isContentReady = ready
                         }
                     )
                     .onAppear {
@@ -281,6 +289,7 @@ struct EPUBReaderView: View {
         let isHovering = isLeft ? isHoveringLeft : isHoveringRight
 
         return Button {
+            guard isContentReady else { return }
             if isLeft {
                 pageController.previousPage()
             } else {
@@ -289,12 +298,13 @@ struct EPUBReaderView: View {
         } label: {
             Text(isLeft ? "\u{2039}" : "\u{203A}")
                 .font(.system(size: 56, weight: .ultraLight))
-                .foregroundStyle(theme.swiftUISecondary.opacity(isHovering ? 0.8 : 0.35))
+                .foregroundStyle(theme.swiftUISecondary.opacity(isContentReady ? (isHovering ? 0.8 : 0.35) : 0.1))
                 .frame(maxHeight: .infinity)
                 .frame(width: 56)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .disabled(!isContentReady)
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.15)) {
                 if isLeft {
@@ -311,7 +321,7 @@ struct EPUBReaderView: View {
     private func bottomBar(service: EPUBService) -> some View {
         VStack(spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
-                // Left: section info
+                // Left: section info (hidden during content transitions)
                 HStack(spacing: 6) {
                     Text(currentChapterTitle)
                         .lineLimit(1)
@@ -323,18 +333,21 @@ struct EPUBReaderView: View {
                 }
                 .font(.system(size: 11))
                 .foregroundStyle(theme.swiftUISecondary)
+                .opacity(isContentReady ? 1 : 0)
 
                 Spacer()
 
-                // Right: global page position
+                // Right: global page position (hidden during content transitions)
                 if let globalPage = currentGlobalPage, let totalBook = totalBookPages {
                     Text("p. \(globalPage) / \(totalBook)")
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(theme.swiftUISecondary)
+                        .opacity(isContentReady ? 1 : 0)
                 } else {
                     Text("Paginating\u{2026} \(paginationProgress)/\(service.chapters.count)")
                         .font(.system(size: 11))
                         .foregroundStyle(theme.swiftUISecondary.opacity(0.5))
+                        .opacity(isContentReady ? 1 : 0)
                 }
             }
             .padding(.horizontal, 16)
