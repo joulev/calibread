@@ -274,7 +274,8 @@ struct EPUBReaderView: View {
             Text(isLeft ? "\u{2039}" : "\u{203A}")
                 .font(.system(size: 56, weight: .ultraLight))
                 .foregroundStyle(theme.swiftUISecondary.opacity(isHovering ? 0.8 : 0.35))
-                .frame(width: 56, maxHeight: .infinity)
+                .frame(maxHeight: .infinity)
+                .frame(width: 56)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
