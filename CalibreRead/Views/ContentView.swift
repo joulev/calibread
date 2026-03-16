@@ -2,15 +2,25 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(LibraryManager.self) private var library
+    @State private var openedBook: CalibreBook?
 
     var body: some View {
         if library.isLoaded {
-            NavigationSplitView {
-                SidebarView()
-            } detail: {
-                LibraryView()
+            ZStack {
+                NavigationSplitView {
+                    SidebarView()
+                } detail: {
+                    LibraryView(openedBook: $openedBook)
+                }
+                .frame(minWidth: 800, minHeight: 500)
+
+                if let book = openedBook {
+                    ReaderView(book: book, libraryRoot: library.libraryURL!) {
+                        openedBook = nil
+                    }
+                    .transition(.opacity)
+                }
             }
-            .frame(minWidth: 800, minHeight: 500)
         } else {
             WelcomeView()
         }

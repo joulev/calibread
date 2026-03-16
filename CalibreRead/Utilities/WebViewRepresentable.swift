@@ -3,9 +3,11 @@ import WebKit
 
 struct EPUBWebView: NSViewRepresentable {
     let fileURL: URL
+    let contentBaseURL: URL
     let theme: ReaderTheme
     let fontSize: Int
     let onPageInfo: ((Int, Int) -> Void)?  // (currentPage, totalPages)
+    let onChapterEnd: ((ChapterEdge) -> Void)?
 
     @Binding var pageCommand: PageCommand
 
@@ -16,8 +18,13 @@ struct EPUBWebView: NSViewRepresentable {
         case goTo(Double) // fraction 0...1
     }
 
+    enum ChapterEdge {
+        case next
+        case previous
+    }
+
     func makeCoordinator() -> Coordinator {
-        Coordinator(onPageInfo: onPageInfo)
+        Coordinator(onPageInfo: onPageInfo, onChapterEnd: onChapterEnd)
     }
 
     func makeNSView(context: Context) -> WKWebView {
@@ -34,6 +41,7 @@ struct EPUBWebView: NSViewRepresentable {
         context.coordinator.webView = webView
         context.coordinator.theme = theme
         context.coordinator.fontSize = fontSize
+        context.coordinator.contentBaseURL = contentBaseURL
 
         loadContent(in: webView)
         return webView
@@ -41,6 +49,8 @@ struct EPUBWebView: NSViewRepresentable {
 
     func updateNSView(_ webView: WKWebView, context: Context) {
         context.coordinator.onPageInfo = onPageInfo
+        context.coordinator.onChapterEnd = onChapterEnd
+        context.coordinator.contentBaseURL = contentBaseURL
 
         if context.coordinator.currentURL != fileURL {
             context.coordinator.theme = theme
@@ -69,8 +79,9 @@ struct EPUBWebView: NSViewRepresentable {
     }
 
     private func loadContent(in webView: WKWebView) {
-        let directory = fileURL.deletingLastPathComponent()
-        webView.loadFileURL(fileURL, allowingReadAccessTo: directory)
+        // Grant read access to the entire EPUB content directory so images,
+        // stylesheets, and other resources from sibling directories load.
+        webView.loadFileURL(fileURL, allowingReadAccessTo: contentBaseURL)
     }
 
     private func injectStyles(in webView: WKWebView) {
@@ -84,7 +95,7 @@ struct EPUBWebView: NSViewRepresentable {
                 document.head.appendChild(style);
             }
             style.textContent = `\(css)`;
-            setTimeout(function() { CalibreReader.recalculate(); }, 50);
+            setTimeout(function() { CalibreReader.recalculate(); }, 100);
         })();
         """
         webView.evaluateJavaScript(js, completionHandler: nil)
@@ -94,18 +105,26 @@ struct EPUBWebView: NSViewRepresentable {
     class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         var webView: WKWebView?
         var currentURL: URL?
+        var contentBaseURL: URL?
         var onPageInfo: ((Int, Int) -> Void)?
+        var onChapterEnd: ((ChapterEdge) -> Void)?
         var theme: ReaderTheme = .light
         var fontSize: Int = 18
 
-        init(onPageInfo: ((Int, Int) -> Void)?) {
+        init(onPageInfo: ((Int, Int) -> Void)?, onChapterEnd: ((ChapterEdge) -> Void)?) {
             self.onPageInfo = onPageInfo
+            self.onChapterEnd = onChapterEnd
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             currentURL = webView.url
 
             let css = theme.css(fontSize: fontSize)
+            // The pagination JS engine. Key design:
+            // - html: overflow hidden (clips content)
+            // - body: CSS columns with NO overflow hidden (columns extend horizontally)
+            // - Navigation via transform: translateX() on body
+            // - Page count from body.scrollWidth / pageWidth
             let setupJS = """
             (function() {
                 // Inject theme styles
@@ -117,18 +136,44 @@ struct EPUBWebView: NSViewRepresentable {
                 }
                 style.textContent = `\(css)`;
 
-                // Set up pagination engine
                 var CalibreReader = {
                     currentPage: 0,
                     totalPages: 1,
                     pageWidth: 0,
 
                     recalculate: function() {
-                        this.pageWidth = window.innerWidth;
-                        var scrollWidth = document.documentElement.scrollWidth;
-                        this.totalPages = Math.max(1, Math.round(scrollWidth / this.pageWidth));
-                        this.currentPage = Math.min(this.currentPage, this.totalPages - 1);
+                        var vw = window.innerWidth;
+                        var vh = window.innerHeight;
+                        var paddingH = 60;
+                        var paddingV = 40;
+                        var gap = paddingH * 2;
+                        var colWidth = vw - gap;
+
+                        // Apply column dimensions dynamically
+                        document.body.style.columnWidth = colWidth + 'px';
+                        document.body.style.columnGap = gap + 'px';
+                        document.body.style.height = vh + 'px';
+                        document.body.style.padding = paddingV + 'px ' + paddingH + 'px';
+
+                        this.pageWidth = vw;
+
+                        // Force layout reflow before measuring
+                        document.body.offsetHeight;
+
+                        var scrollW = document.body.scrollWidth;
+                        this.totalPages = Math.max(1, Math.round(scrollW / this.pageWidth));
+
+                        // Clamp current page
+                        if (this.currentPage >= this.totalPages) {
+                            this.currentPage = this.totalPages - 1;
+                        }
+
+                        this.applyTransform();
                         this.reportPage();
+                    },
+
+                    applyTransform: function() {
+                        document.body.style.transform = 'translateX(-' + (this.currentPage * this.pageWidth) + 'px)';
                     },
 
                     reportPage: function() {
@@ -140,28 +185,28 @@ struct EPUBWebView: NSViewRepresentable {
 
                     goToPage: function(n) {
                         this.currentPage = Math.max(0, Math.min(n, this.totalPages - 1));
-                        document.documentElement.scrollLeft = this.currentPage * this.pageWidth;
+                        this.applyTransform();
                         this.reportPage();
                     },
 
                     nextPage: function() {
                         if (this.currentPage < this.totalPages - 1) {
                             this.goToPage(this.currentPage + 1);
-                            return true;
+                        } else {
+                            window.webkit.messageHandlers.pageHandler.postMessage({ action: 'nextChapter' });
                         }
-                        return false;
                     },
 
                     prevPage: function() {
                         if (this.currentPage > 0) {
                             this.goToPage(this.currentPage - 1);
-                            return true;
+                        } else {
+                            window.webkit.messageHandlers.pageHandler.postMessage({ action: 'prevChapter' });
                         }
-                        return false;
                     },
 
                     goToFraction: function(f) {
-                        var page = Math.round(f * (this.totalPages - 1));
+                        var page = Math.round(f * Math.max(0, this.totalPages - 1));
                         this.goToPage(page);
                     },
 
@@ -174,32 +219,45 @@ struct EPUBWebView: NSViewRepresentable {
                 window.CalibreReader = CalibreReader;
 
                 // Initial calculation after layout settles
-                setTimeout(function() { CalibreReader.recalculate(); }, 100);
+                setTimeout(function() { CalibreReader.recalculate(); }, 200);
+                // Second recalculation for images that load late
+                setTimeout(function() { CalibreReader.recalculate(); }, 800);
 
-                // Recalculate on resize
+                // Recalculate on resize (window/sheet resized)
+                var resizeTimer = null;
                 window.addEventListener('resize', function() {
-                    setTimeout(function() { CalibreReader.recalculate(); }, 100);
+                    clearTimeout(resizeTimer);
+                    resizeTimer = setTimeout(function() {
+                        CalibreReader.recalculate();
+                    }, 150);
+                });
+
+                // Recalculate when images finish loading
+                document.querySelectorAll('img').forEach(function(img) {
+                    if (!img.complete) {
+                        img.addEventListener('load', function() {
+                            CalibreReader.recalculate();
+                        });
+                    }
                 });
 
                 // Handle keyboard navigation within the webview
                 document.addEventListener('keydown', function(e) {
                     if (e.key === 'ArrowRight' || e.key === ' ') {
                         e.preventDefault();
-                        var moved = CalibreReader.nextPage();
-                        if (!moved) {
-                            window.webkit.messageHandlers.pageHandler.postMessage({ action: 'nextChapter' });
-                        }
+                        CalibreReader.nextPage();
                     } else if (e.key === 'ArrowLeft') {
                         e.preventDefault();
-                        var moved = CalibreReader.prevPage();
-                        if (!moved) {
-                            window.webkit.messageHandlers.pageHandler.postMessage({ action: 'prevChapter' });
-                        }
+                        CalibreReader.prevPage();
                     }
                 });
 
-                // Prevent native scroll
+                // Prevent native scrolling (both wheel and trackpad)
                 document.addEventListener('wheel', function(e) { e.preventDefault(); }, { passive: false });
+                document.addEventListener('scroll', function(e) {
+                    window.scrollTo(0, 0);
+                    document.documentElement.scrollLeft = 0;
+                });
             })();
             """
             webView.evaluateJavaScript(setupJS, completionHandler: nil)
@@ -208,17 +266,13 @@ struct EPUBWebView: NSViewRepresentable {
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             if message.name == "pageHandler", let dict = message.body as? [String: Any] {
                 if let current = dict["current"] as? Int, let total = dict["total"] as? Int {
-                    DispatchQueue.main.async {
-                        self.onPageInfo?(current, total)
-                    }
+                    onPageInfo?(current, total)
                 }
                 if let action = dict["action"] as? String {
-                    DispatchQueue.main.async {
-                        if action == "nextChapter" {
-                            self.onPageInfo?(-1, 0)  // signal: next chapter
-                        } else if action == "prevChapter" {
-                            self.onPageInfo?(-2, 0)  // signal: prev chapter
-                        }
+                    if action == "nextChapter" {
+                        onChapterEnd?(.next)
+                    } else if action == "prevChapter" {
+                        onChapterEnd?(.previous)
                     }
                 }
             }
@@ -261,13 +315,8 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
             background-color: \(bg) !important;
             color: \(fg) !important;
             margin: 0 !important;
-            padding: 40px 60px !important;
             box-sizing: border-box !important;
-            height: 100vh !important;
             column-fill: auto !important;
-            column-gap: 80px !important;
-            column-width: calc(100vw - 200px) !important;
-            overflow: hidden !important;
             text-align: justify !important;
             -webkit-hyphens: auto !important;
             hyphens: auto !important;

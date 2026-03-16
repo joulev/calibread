@@ -1,5 +1,4 @@
-/* Default EPUB reader styles — injected into WKWebView */
-/* These are base styles; theme-specific overrides are injected via JavaScript */
+/* Default EPUB reader styles — base styles before JS theme injection */
 
 html {
     overflow: hidden;
@@ -21,12 +20,11 @@ body {
     box-sizing: border-box;
     height: 100vh;
     column-fill: auto;
-    column-gap: 80px;
-    column-width: calc(100vw - 200px);
-    overflow: hidden;
     text-align: justify;
     -webkit-hyphens: auto;
     hyphens: auto;
+    /* NOTE: no overflow:hidden here — columns must extend horizontally.
+       html clips the view; JS uses transform to paginate. */
 }
 
 p {
@@ -36,7 +34,6 @@ p {
     widows: 2;
 }
 
-/* Don't indent the first paragraph after a heading or break */
 p:first-child, h1 + p, h2 + p, h3 + p, h4 + p, hr + p, blockquote + p {
     text-indent: 0;
 }
