@@ -2,9 +2,9 @@ import SwiftUI
 
 struct LibraryView: View {
     @Environment(LibraryManager.self) private var library
+    @Environment(\.openWindow) private var openWindow
     @State private var selectedBook: CalibreBook?
     @State private var viewMode: ViewMode = .grid
-    @Binding var openedBook: CalibreBook?
 
     enum ViewMode: String, CaseIterable {
         case grid = "Grid"
@@ -36,7 +36,7 @@ struct LibraryView: View {
                                     selectedBook = book
                                 }
                                 .onTapGesture(count: 2) {
-                                    openedBook = book
+                                    openBook(book)
                                 }
                         }
                     }
@@ -48,7 +48,7 @@ struct LibraryView: View {
                         BookListRow(book: book, libraryRoot: library.libraryURL!)
                             .tag(book)
                             .onTapGesture(count: 2) {
-                                openedBook = book
+                                openBook(book)
                             }
                     }
                 }
@@ -80,11 +80,17 @@ struct LibraryView: View {
         )) {
             if let book = selectedBook {
                 BookDetailView(book: book, libraryRoot: library.libraryURL!) {
-                    openedBook = book
+                    openBook(book)
                 }
                 .inspectorColumnWidth(min: 280, ideal: 320, max: 400)
             }
         }
+    }
+
+    private func openBook(_ book: CalibreBook) {
+        guard let libraryRoot = library.libraryURL,
+              let data = BookWindowData(book: book, libraryRoot: libraryRoot) else { return }
+        openWindow(value: data)
     }
 
     private var navigationTitle: String {
