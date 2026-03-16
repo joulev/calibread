@@ -58,17 +58,16 @@ final class EPUBService {
     // MARK: - Private
 
     private func buildChapters() -> [Chapter] {
-        guard let spine = document.spine,
-              let manifest = document.manifest else { return [] }
+        let spine = document.spine
+        let manifest = document.manifest
+        let contentDir = document.contentDirectory
 
         var chapters: [Chapter] = []
         for (index, spineItem) in spine.items.enumerated() {
             let itemId = spineItem.idref
             if let manifestItem = manifest.items[itemId] {
                 let href = manifestItem.path
-                let contentDir = document.contentDirectory ?? ""
-                let fileURL = extractedURL
-                    .appendingPathComponent(contentDir)
+                let fileURL = contentDir
                     .appendingPathComponent(href)
 
                 chapters.append(Chapter(
@@ -83,14 +82,15 @@ final class EPUBService {
     }
 
     private func buildTOC() -> [Chapter] {
-        guard let toc = document.tableOfContents else { return chapters }
-        let contentDir = document.contentDirectory ?? ""
+        let toc = document.tableOfContents
+        let contentDir = document.contentDirectory
 
-        return toc.subTable?.enumerated().map { index, item in
+        guard let subTable = toc.subTable, !subTable.isEmpty else { return chapters }
+
+        return subTable.enumerated().map { index, item in
             let href = item.item ?? ""
             let baseHref = href.components(separatedBy: "#").first ?? href
-            let fileURL = extractedURL
-                .appendingPathComponent(contentDir)
+            let fileURL = contentDir
                 .appendingPathComponent(baseHref)
 
             return Chapter(
@@ -99,7 +99,7 @@ final class EPUBService {
                 href: href,
                 fileURL: fileURL
             )
-        } ?? chapters
+        }
     }
 }
 

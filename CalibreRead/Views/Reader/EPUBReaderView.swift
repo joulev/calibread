@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 struct EPUBReaderView: View {
     let bookURL: URL
@@ -169,8 +170,9 @@ struct EPUBReaderView: View {
     }
 
     private func saveProgress() {
+        let bookIdValue = bookId
         let descriptor = FetchDescriptor<ReadingProgress>(
-            predicate: #Predicate { $0.bookIdentifier == bookId }
+            predicate: #Predicate<ReadingProgress> { $0.bookIdentifier == bookIdValue }
         )
         if let existing = try? modelContext.fetch(descriptor).first {
             existing.chapterIndex = currentChapterIndex
@@ -189,8 +191,9 @@ struct EPUBReaderView: View {
     }
 
     private func restoreProgress() {
+        let bookIdValue = bookId
         let descriptor = FetchDescriptor<ReadingProgress>(
-            predicate: #Predicate { $0.bookIdentifier == bookId }
+            predicate: #Predicate<ReadingProgress> { $0.bookIdentifier == bookIdValue }
         )
         if let progress = try? modelContext.fetch(descriptor).first {
             currentChapterIndex = progress.chapterIndex
