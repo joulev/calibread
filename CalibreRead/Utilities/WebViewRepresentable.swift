@@ -344,6 +344,9 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
             margin: 0 !important;
             padding: 0 !important;
         }
+        ::-webkit-scrollbar {
+            display: none !important;
+        }
         body {
             font-family: 'Iowan Old Style', 'Palatino', 'Georgia', serif !important;
             font-size: \(fontSize)px !important;
