@@ -33,6 +33,7 @@
 		A10024 /* reader.css in Resources */ = {isa = PBXBuildFile; fileRef = B10024; };
 		A10030 /* SQLite in Frameworks */ = {isa = PBXBuildFile; productRef = D10001; };
 		A10031 /* EPUBKit in Frameworks */ = {isa = PBXBuildFile; productRef = D10002; };
+		A10032 /* BookWindowData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10027; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -63,6 +64,7 @@
 		B10024 /* reader.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = reader.css; sourceTree = "<group>"; };
 		B10025 /* CalibreRead.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CalibreRead.entitlements; sourceTree = "<group>"; };
 		B10026 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B10027 /* BookWindowData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookWindowData.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -110,6 +112,7 @@
 				B10005 /* CalibreSeries.swift */,
 				B10006 /* CalibreTag.swift */,
 				B10007 /* ReadingProgress.swift */,
+				B10027 /* BookWindowData.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -291,6 +294,7 @@
 				A10020 /* SettingsView.swift in Sources */,
 				A10021 /* WebViewRepresentable.swift in Sources */,
 				A10022 /* PDFViewRepresentable.swift in Sources */,
+				A10032 /* BookWindowData.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
