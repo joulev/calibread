@@ -18,7 +18,7 @@ struct EPUBReaderView: View {
     @State private var errorMessage: String?
     @State private var currentPage = 1
     @State private var totalPages = 1
-    @State private var pageCommand: EPUBWebView.PageCommand = .none
+    @State private var pageController = EPUBPageController()
     @State private var isHoveringLeft = false
     @State private var isHoveringRight = false
 
@@ -88,7 +88,7 @@ struct EPUBReaderView: View {
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .preferredColorScheme(theme == .dark ? .dark : .light)
         .toolbar {
-            ToolbarItemGroup(placement: .navigation) {
+            ToolbarItemGroup(placement: .primaryAction) {
                 Button { showTOC.toggle() } label: {
                     Label("Contents", systemImage: "list.bullet")
                 }
@@ -118,15 +118,15 @@ struct EPUBReaderView: View {
             paginationTask?.cancel()
         }
         .onKeyPress(.leftArrow) {
-            pageCommand = .previous
+            pageController.previousPage()
             return .handled
         }
         .onKeyPress(.rightArrow) {
-            pageCommand = .next
+            pageController.nextPage()
             return .handled
         }
         .onKeyPress(.space) {
-            pageCommand = .next
+            pageController.nextPage()
             return .handled
         }
         .onKeyPress(.escape) {
@@ -158,6 +158,7 @@ struct EPUBReaderView: View {
                     contentBaseURL: service.contentRootURL,
                     theme: theme,
                     fontSize: fontSize,
+                    controller: pageController,
                     onPageInfo: { page, total in
                         currentPage = page
                         totalPages = total
@@ -179,12 +180,11 @@ struct EPUBReaderView: View {
                             if currentChapterIndex > 0 {
                                 currentChapterIndex -= 1
                                 currentPage = 1
-                                pageCommand = .goTo(1.0)
+                                pageController.pendingFraction = 1.0
                                 saveProgress()
                             }
                         }
-                    },
-                    pageCommand: $pageCommand
+                    }
                 )
                 .background {
                     GeometryReader { geo in
@@ -273,7 +273,11 @@ struct EPUBReaderView: View {
         let isHovering = isLeft ? isHoveringLeft : isHoveringRight
 
         return Button {
-            pageCommand = isLeft ? .previous : .next
+            if isLeft {
+                pageController.previousPage()
+            } else {
+                pageController.nextPage()
+            }
         } label: {
             Text(isLeft ? "\u{2039}" : "\u{203A}")
                 .font(.system(size: 56, weight: .ultraLight))
@@ -470,7 +474,7 @@ struct EPUBReaderView: View {
         if let progress = try? modelContext.fetch(descriptor).first {
             currentChapterIndex = progress.chapterIndex
             if progress.scrollPosition > 0 {
-                pageCommand = .goTo(progress.scrollPosition)
+                pageController.pendingFraction = progress.scrollPosition
             }
         }
     }
