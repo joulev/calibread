@@ -20,6 +20,7 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
     private var currentIndex = 0
 
     private var navigationContinuation: CheckedContinuation<Void, Never>?
+    private var navigationDidComplete = false
 
     init(
         chapters: [EPUBService.Chapter],
@@ -73,10 +74,17 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
         let index = currentIndex
         currentIndex += 1
 
+        navigationDidComplete = false
+        navigationContinuation = nil
+
         webView.loadFileURL(chapter.fileURL, allowingReadAccessTo: contentBaseURL)
 
-        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-            self.navigationContinuation = cont
+        if navigationDidComplete {
+            navigationDidComplete = false
+        } else {
+            await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+                self.navigationContinuation = cont
+            }
         }
 
         // Brief delay for images to affect layout
@@ -135,17 +143,29 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
     // MARK: - WKNavigationDelegate
 
     func webView(_ wv: WKWebView, didFinish navigation: WKNavigation!) {
-        navigationContinuation?.resume()
-        navigationContinuation = nil
+        if let cont = navigationContinuation {
+            navigationContinuation = nil
+            cont.resume()
+        } else {
+            navigationDidComplete = true
+        }
     }
 
     func webView(_ wv: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        navigationContinuation?.resume()
-        navigationContinuation = nil
+        if let cont = navigationContinuation {
+            navigationContinuation = nil
+            cont.resume()
+        } else {
+            navigationDidComplete = true
+        }
     }
 
     func webView(_ wv: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        navigationContinuation?.resume()
-        navigationContinuation = nil
+        if let cont = navigationContinuation {
+            navigationContinuation = nil
+            cont.resume()
+        } else {
+            navigationDidComplete = true
+        }
     }
 }
