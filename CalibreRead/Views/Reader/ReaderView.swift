@@ -28,11 +28,6 @@ struct ReaderView: View {
                 errorView("No readable format found for this book.")
             }
         }
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Close") { dismiss() }
-            }
-        }
     }
 
     private func errorView(_ message: String) -> some View {
@@ -43,6 +38,8 @@ struct ReaderView: View {
             Text(message)
                 .font(.title3)
                 .foregroundStyle(.secondary)
+            Button("Close") { dismiss() }
+                .buttonStyle(.bordered)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
