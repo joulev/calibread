@@ -1,28 +1,4 @@
 import WebKit
-import os.log
-
-/// Diagnostic logger — same as in EPUBReaderView, writes to os_log + file.
-private func debugLog(_ message: String) {
-    let logger = Logger(subsystem: "com.calibreread.debug", category: "paginator")
-    logger.warning("\(message, privacy: .public)")
-    NSLog("%@", message)
-
-    let logFile = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Logs/CalibreRead-debug.log")
-    let timestamp = ISO8601DateFormatter().string(from: Date())
-    let line = "[\(timestamp)] \(message)\n"
-    if let data = line.data(using: .utf8) {
-        if FileManager.default.fileExists(atPath: logFile.path) {
-            if let handle = try? FileHandle(forWritingTo: logFile) {
-                handle.seekToEndOfFile()
-                handle.write(data)
-                handle.closeFile()
-            }
-        } else {
-            try? data.write(to: logFile)
-        }
-    }
-}
 
 /// Measures page counts for all chapters in an EPUB by loading each into a hidden
 /// WKWebView with the same column-based pagination layout as the reader.
@@ -44,8 +20,6 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
     private var currentIndex = 0
 
     private var navigationContinuation: CheckedContinuation<Void, Never>?
-    /// Set to true when a navigation delegate callback fires before we enter the continuation.
-    private var navigationDidComplete = false
 
     init(
         chapters: [EPUBService.Chapter],
@@ -85,7 +59,6 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
 
         super.init()
         webView.navigationDelegate = self
-        debugLog("[EPUBPaginator] init: \(chapters.count) chapters, viewport=\(viewportSize.width)x\(viewportSize.height), fontSize=\(fontSize), theme=\(theme), contentBaseURL=\(contentBaseURL.path)")
     }
 
     deinit {
@@ -94,44 +67,22 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
 
     /// Measure the next chapter's page count. Returns `nil` when all chapters have been measured.
     func measureNext() async -> (index: Int, pageCount: Int)? {
-        guard currentIndex < chapters.count else {
-            debugLog("[EPUBPaginator] measureNext: all \(chapters.count) chapters done")
-            return nil
-        }
+        guard currentIndex < chapters.count else { return nil }
 
         let chapter = chapters[currentIndex]
         let index = currentIndex
         currentIndex += 1
 
-        let fileExists = FileManager.default.fileExists(atPath: chapter.fileURL.path)
-        debugLog("[EPUBPaginator] measureNext[\(index)]: loading \(chapter.fileURL.lastPathComponent) (exists: \(fileExists))")
-
-        // Load the file first, then await the navigation delegate callback.
-        // Both must happen on the main actor. We use a flag to handle the case
-        // where didFinish fires before we enter the continuation.
-        navigationDidComplete = false
-        navigationContinuation = nil
-
         webView.loadFileURL(chapter.fileURL, allowingReadAccessTo: contentBaseURL)
 
-        // If the delegate already fired (set navigationDidComplete before we
-        // get here), skip the await. Otherwise wait for the callback.
-        if navigationDidComplete {
-            debugLog("[EPUBPaginator] measureNext[\(index)]: navigation completed synchronously")
-            navigationDidComplete = false
-        } else {
-            await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-                self.navigationContinuation = cont
-            }
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            self.navigationContinuation = cont
         }
-
-        debugLog("[EPUBPaginator] measureNext[\(index)]: navigation finished, measuring pages...")
 
         // Brief delay for images to affect layout
         try? await Task.sleep(for: .milliseconds(150))
 
         let pageCount = await measurePages()
-        debugLog("[EPUBPaginator] measureNext[\(index)]: pageCount = \(pageCount)")
         return (index: index, pageCount: pageCount)
     }
 
@@ -175,13 +126,8 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
         """
 
         return await withCheckedContinuation { cont in
-            webView.evaluateJavaScript(js) { result, error in
-                if let error {
-                    debugLog("[EPUBPaginator] measurePages JS error: \(error.localizedDescription)")
-                }
-                let pages = (result as? Int) ?? 1
-                debugLog("[EPUBPaginator] measurePages JS result: raw=\(String(describing: result)), pages=\(pages), vw=\(vw), vh=\(vh)")
-                cont.resume(returning: pages)
+            webView.evaluateJavaScript(js) { result, _ in
+                cont.resume(returning: (result as? Int) ?? 1)
             }
         }
     }
@@ -189,32 +135,17 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
     // MARK: - WKNavigationDelegate
 
     func webView(_ wv: WKWebView, didFinish navigation: WKNavigation!) {
-        debugLog("[EPUBPaginator] didFinish: continuation=\(navigationContinuation != nil ? "set" : "nil")")
-        if let cont = navigationContinuation {
-            navigationContinuation = nil
-            cont.resume()
-        } else {
-            navigationDidComplete = true
-        }
+        navigationContinuation?.resume()
+        navigationContinuation = nil
     }
 
     func webView(_ wv: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        debugLog("[EPUBPaginator] didFail: \(error.localizedDescription), continuation=\(navigationContinuation != nil ? "set" : "nil")")
-        if let cont = navigationContinuation {
-            navigationContinuation = nil
-            cont.resume()
-        } else {
-            navigationDidComplete = true
-        }
+        navigationContinuation?.resume()
+        navigationContinuation = nil
     }
 
     func webView(_ wv: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        debugLog("[EPUBPaginator] didFailProvisionalNavigation: \(error.localizedDescription), continuation=\(navigationContinuation != nil ? "set" : "nil")")
-        if let cont = navigationContinuation {
-            navigationContinuation = nil
-            cont.resume()
-        } else {
-            navigationDidComplete = true
-        }
+        navigationContinuation?.resume()
+        navigationContinuation = nil
     }
 }
