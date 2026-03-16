@@ -14,6 +14,7 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
     private let contentBaseURL: URL
     private let theme: ReaderTheme
     private let fontSize: Int
+    private var currentIndex = 0
 
     private var navigationContinuation: CheckedContinuation<Void, Never>?
 
@@ -40,31 +41,25 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
         webView.navigationDelegate = self
     }
 
-    /// Paginate all chapters sequentially, returning an array of page counts.
-    /// Calls `onChapterMeasured(chapterIndex, pageCount)` after each chapter is measured.
-    func paginateAll(onChapterMeasured: (@Sendable (Int, Int) -> Void)? = nil) async -> [Int] {
-        var counts: [Int] = []
+    /// Measure the next chapter's page count. Returns `nil` when all chapters have been measured.
+    func measureNext() async -> (index: Int, pageCount: Int)? {
+        guard currentIndex < chapters.count else { return nil }
 
-        for (index, chapter) in chapters.enumerated() {
-            guard !Task.isCancelled else { return counts }
+        let chapter = chapters[currentIndex]
+        let index = currentIndex
+        currentIndex += 1
 
-            webView.loadFileURL(chapter.fileURL, allowingReadAccessTo: contentBaseURL)
+        webView.loadFileURL(chapter.fileURL, allowingReadAccessTo: contentBaseURL)
 
-            await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-                self.navigationContinuation = cont
-            }
-
-            guard !Task.isCancelled else { return counts }
-
-            // Brief delay for images to affect layout
-            try? await Task.sleep(for: .milliseconds(150))
-
-            let pageCount = await measurePages()
-            counts.append(pageCount)
-            onChapterMeasured?(index, pageCount)
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            self.navigationContinuation = cont
         }
 
-        return counts
+        // Brief delay for images to affect layout
+        try? await Task.sleep(for: .milliseconds(150))
+
+        let pageCount = await measurePages()
+        return (index: index, pageCount: pageCount)
     }
 
     // MARK: - Page Measurement
