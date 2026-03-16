@@ -15,7 +15,7 @@ final class LibraryManager {
     var libraryURL: URL? {
         didSet {
             if let url = libraryURL {
-                persistLibraryBookmark(url)
+                persistLibraryPath(url)
                 loadLibrary(from: url)
             }
         }
@@ -77,9 +77,6 @@ final class LibraryManager {
     // MARK: - Library loading
 
     func loadLibrary(from url: URL) {
-        let accessing = url.startAccessingSecurityScopedResource()
-        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-
         do {
             let database = try CalibreDatabase(libraryURL: url)
             self.books = try database.fetchAllBooks()
@@ -101,37 +98,18 @@ final class LibraryManager {
         searchText = ""
     }
 
-    // MARK: - Security-scoped bookmark persistence
+    // MARK: - Library path persistence
 
-    private static let bookmarkKey = "calibreLibraryBookmark"
+    private static let libraryPathKey = "calibreLibraryPath"
 
     func restoreSavedLibrary() {
-        guard let data = UserDefaults.standard.data(forKey: Self.bookmarkKey) else { return }
-        var isStale = false
-        guard let url = try? URL(
-            resolvingBookmarkData: data,
-            options: .withSecurityScope,
-            relativeTo: nil,
-            bookmarkDataIsStale: &isStale
-        ) else { return }
-
-        if isStale {
-            persistLibraryBookmark(url)
-        }
-
+        guard let path = UserDefaults.standard.string(forKey: Self.libraryPathKey) else { return }
+        let url = URL(fileURLWithPath: path)
+        guard FileManager.default.fileExists(atPath: url.appendingPathComponent("metadata.db").path) else { return }
         self.libraryURL = url
     }
 
-    private func persistLibraryBookmark(_ url: URL) {
-        let accessing = url.startAccessingSecurityScopedResource()
-        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-
-        if let data = try? url.bookmarkData(
-            options: .withSecurityScope,
-            includingResourceValuesForKeys: nil,
-            relativeTo: nil
-        ) {
-            UserDefaults.standard.set(data, forKey: Self.bookmarkKey)
-        }
+    private func persistLibraryPath(_ url: URL) {
+        UserDefaults.standard.set(url.path, forKey: Self.libraryPathKey)
     }
 }

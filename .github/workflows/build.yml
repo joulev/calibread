@@ -1,0 +1,58 @@
+name: Build CalibreRead
+
+on:
+  push:
+    branches: ["*"]
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+
+      - name: Resolve SPM dependencies
+        run: xcodebuild -resolvePackageDependencies -project CalibreRead.xcodeproj -scheme CalibreRead
+
+      - name: Build
+        run: |
+          xcodebuild build \
+            -project CalibreRead.xcodeproj \
+            -scheme CalibreRead \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM="" \
+            | xcpretty
+
+      - name: Package app
+        run: |
+          APP_PATH="build/Build/Products/Release/CalibreRead.app"
+          ditto -c -k --keepParent "$APP_PATH" CalibreRead.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CalibreRead-${{ github.sha }}
+          path: CalibreRead.zip
+
+      - name: Create Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Build ${{ github.run_number }}
+          body: |
+            Automated build from commit ${{ github.sha }}.
+
+            **To install:**
+            1. Download `CalibreRead.zip` below
+            2. Unzip it
+            3. Run `xattr -cr CalibreRead.app` in Terminal (one-time, removes Gatekeeper quarantine)
+            4. Move to `/Applications` and open
+          files: CalibreRead.zip
+          generate_release_notes: true
