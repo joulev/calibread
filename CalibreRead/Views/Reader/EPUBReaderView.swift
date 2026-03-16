@@ -56,17 +56,24 @@ struct EPUBReaderView: View {
         return (Double(currentChapterIndex) + chapterFraction) / Double(service.chapters.count)
     }
 
-    /// Title of the current chapter from the TOC, if available.
-    private var currentChapterTitle: String? {
-        guard let service = epubService else { return nil }
-        let currentHref = service.chapters[currentChapterIndex].href
-        let currentBase = currentHref.components(separatedBy: "#").first ?? currentHref
-        return service.tableOfContents.first { toc in
-            let tocBase = toc.href.components(separatedBy: "#").first ?? toc.href
-            return tocBase == currentBase
-                || tocBase.hasSuffix("/\(currentBase)")
-                || currentBase.hasSuffix("/\(tocBase)")
-        }?.title
+    /// Title of the current section. If the current spine chapter has a direct
+    /// TOC match, use that. Otherwise walk backward through spine chapters to
+    /// find the most recent one with a TOC entry. Falls back to "Unnamed Chapter".
+    private var currentChapterTitle: String {
+        guard let service = epubService else { return "Unnamed Chapter" }
+        for i in stride(from: currentChapterIndex, through: 0, by: -1) {
+            let href = service.chapters[i].href
+            let base = href.components(separatedBy: "#").first ?? href
+            if let tocEntry = service.tableOfContents.first(where: { toc in
+                let tocBase = toc.href.components(separatedBy: "#").first ?? toc.href
+                return tocBase == base
+                    || tocBase.hasSuffix("/\(base)")
+                    || base.hasSuffix("/\(tocBase)")
+            }) {
+                return tocEntry.title
+            }
+        }
+        return "Unnamed Chapter"
     }
 
     var body: some View {
@@ -85,7 +92,7 @@ struct EPUBReaderView: View {
         }
         .navigationTitle(bookTitle)
         .toolbarTitleDisplayMode(.inline)
-        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar, .automatic)
         .preferredColorScheme(theme == .dark ? .dark : .light)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
@@ -305,12 +312,8 @@ struct EPUBReaderView: View {
             HStack(alignment: .firstTextBaseline) {
                 // Left: section info
                 HStack(spacing: 6) {
-                    if let title = currentChapterTitle {
-                        Text(title)
-                            .lineLimit(1)
-                    } else {
-                        Text("Section \(currentChapterIndex + 1) of \(service.chapters.count)")
-                    }
+                    Text(currentChapterTitle)
+                        .lineLimit(1)
 
                     Text("\u{00B7}")
                         .foregroundStyle(theme.swiftUISecondary.opacity(0.5))
