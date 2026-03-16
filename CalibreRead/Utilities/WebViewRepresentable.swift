@@ -165,7 +165,8 @@ struct EPUBWebView: NSViewRepresentable {
                     recalculate: function() {
                         var vw = window.innerWidth;
                         var vh = window.innerHeight;
-                        var paddingH = 60;
+                        var maxContentWidth = 720;
+                        var paddingH = Math.max(60, (vw - maxContentWidth) / 2);
                         var paddingV = 40;
                         var gap = paddingH * 2;
                         var colWidth = vw - gap;
@@ -240,9 +241,13 @@ struct EPUBWebView: NSViewRepresentable {
                 window.CalibreReader = CalibreReader;
 
                 // Initial calculation after layout settles, then reveal
+                // Body stays hidden until explicitly revealed to avoid flash
+                // when navigating backward (goToFraction needs to run first)
                 setTimeout(function() {
                     CalibreReader.recalculate();
-                    document.body.style.opacity = '1';
+                    if (!window._CalibreWaitForFraction) {
+                        document.body.style.opacity = '1';
+                    }
                 }, 200);
                 // Second recalculation for images that load late
                 setTimeout(function() { CalibreReader.recalculate(); }, 800);
@@ -289,7 +294,15 @@ struct EPUBWebView: NSViewRepresentable {
             // Apply pending fraction (e.g., go to last page when navigating backward)
             if let fraction = pendingFraction {
                 pendingFraction = nil
-                let goToJS = "setTimeout(function() { CalibreReader.goToFraction(\(fraction)); }, 250);"
+                // Set flag BEFORE setup JS runs so the reveal is deferred
+                let flagJS = "window._CalibreWaitForFraction = true;"
+                webView.evaluateJavaScript(flagJS, completionHandler: nil)
+                let goToJS = """
+                setTimeout(function() {
+                    CalibreReader.goToFraction(\(fraction));
+                    document.body.style.opacity = '1';
+                }, 250);
+                """
                 webView.evaluateJavaScript(goToJS, completionHandler: nil)
             }
         }

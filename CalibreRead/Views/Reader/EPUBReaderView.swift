@@ -24,10 +24,6 @@ struct EPUBReaderView: View {
 
     @Environment(\.modelContext) private var modelContext
 
-    private var pagesLeftInChapter: Int {
-        max(0, totalPages - currentPage)
-    }
-
     private var readingProgress: Double {
         guard let service = epubService, !service.chapters.isEmpty else { return 0 }
         let chapterFraction = totalPages > 1 ? Double(currentPage - 1) / Double(totalPages - 1) : 0
@@ -74,6 +70,7 @@ struct EPUBReaderView: View {
     private func readerContent(service: EPUBService) -> some View {
         VStack(spacing: 0) {
             readerToolbar(service: service)
+                .padding(.top, 6) // Vertically center with traffic lights
 
             // Main content area with side navigation arrows
             ZStack {
@@ -122,36 +119,19 @@ struct EPUBReaderView: View {
 
     private func readerToolbar(service: EPUBService) -> some View {
         HStack(spacing: 12) {
-            // Left: standalone page icon
-            Image(systemName: "doc.fill")
-                .font(.system(size: 13))
-                .foregroundStyle(theme.swiftUISecondary)
-                .frame(width: 28, height: 28)
-
-            // Left icon group: TOC, book spread, single page, scroll
-            HStack(spacing: 0) {
-                readerToolbarIcon(icon: "list.bullet") {
-                    showTOC.toggle()
-                }
-                .popover(isPresented: $showTOC, arrowEdge: .bottom) {
-                    TableOfContentsView(
-                        chapters: service.tableOfContents,
-                        currentIndex: currentChapterIndex,
-                        theme: theme
-                    ) { index in
-                        navigateToChapter(index)
-                        showTOC = false
-                    }
-                }
-
-                readerToolbarIcon(icon: "book") { }
-                readerToolbarIcon(icon: "rectangle.portrait") { }
-                readerToolbarIcon(icon: "rectangle.split.3x1") { }
+            // TOC button
+            readerToolbarIcon(icon: "list.bullet") {
+                showTOC.toggle()
             }
-            .background(
-                RoundedRectangle(cornerRadius: 7)
-                    .fill(theme.swiftUIForeground.opacity(0.06))
-            )
+            .popover(isPresented: $showTOC, arrowEdge: .bottom) {
+                TableOfContentsView(
+                    chapters: service.tableOfContents,
+                    currentIndex: currentChapterIndex
+                ) { index in
+                    navigateToChapter(index)
+                    showTOC = false
+                }
+            }
 
             Spacer()
 
@@ -163,31 +143,23 @@ struct EPUBReaderView: View {
 
             Spacer()
 
-            // Right icon group: font size, search, bookmark
-            HStack(spacing: 0) {
-                Button { showFontPanel.toggle() } label: {
-                    Text("AA")
-                        .font(.system(size: 14, weight: .medium, design: .serif))
-                        .foregroundStyle(theme.swiftUISecondary)
-                        .frame(width: 34, height: 28)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .popover(isPresented: $showFontPanel, arrowEdge: .bottom) {
-                    fontControlsPanel()
-                }
-
-                readerToolbarIcon(icon: "magnifyingglass") { }
-                readerToolbarIcon(icon: "bookmark") { }
+            // Theme/font button
+            Button { showFontPanel.toggle() } label: {
+                Text("AA")
+                    .font(.system(size: 14, weight: .medium, design: .serif))
+                    .foregroundStyle(theme.swiftUISecondary)
+                    .frame(width: 34, height: 28)
+                    .contentShape(Rectangle())
             }
-            .background(
-                RoundedRectangle(cornerRadius: 7)
-                    .fill(theme.swiftUIForeground.opacity(0.06))
-            )
+            .buttonStyle(.plain)
+            .popover(isPresented: $showFontPanel, arrowEdge: .bottom) {
+                fontControlsPanel()
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .padding(.top, 8) // Extra space for hidden title bar area
+        // Left padding clears traffic light buttons (~76px)
+        .padding(.leading, 76)
+        .padding(.trailing, 16)
+        .frame(height: 28)
     }
 
     private func readerToolbarIcon(icon: String, action: @escaping () -> Void) -> some View {
@@ -294,23 +266,11 @@ struct EPUBReaderView: View {
 
     private func bottomBar(service: EPUBService) -> some View {
         VStack(spacing: 0) {
-            HStack {
-                Spacer()
-
-                Text("\(currentPage) of \(totalPages)")
-                    .font(.system(size: 12))
-                    .foregroundStyle(theme.swiftUISecondary)
-
-                Spacer()
-
-                if pagesLeftInChapter > 0 {
-                    Text("\(pagesLeftInChapter) page\(pagesLeftInChapter == 1 ? "" : "s") left in chapter")
-                        .font(.system(size: 12))
-                        .foregroundStyle(theme.swiftUISecondary.opacity(0.6))
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 8)
+            Text("\(currentPage) of \(totalPages)")
+                .font(.system(size: 12))
+                .foregroundStyle(theme.swiftUISecondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
 
             // Reading progress bar
             GeometryReader { geometry in
