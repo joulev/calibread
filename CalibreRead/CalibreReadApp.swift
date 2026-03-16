@@ -42,7 +42,7 @@ struct CalibreReadApp: App {
             }
         }
         .modelContainer(for: [ReadingProgress.self, BookmarkEntry.self])
-        .windowStyle(.automatic)
+        .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 900, height: 700)
 
         Settings {

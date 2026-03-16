@@ -12,14 +12,27 @@ struct EPUBReaderView: View {
     @State private var epubService: EPUBService?
     @State private var currentChapterIndex = 0
     @State private var showTOC = false
-    @State private var theme: ReaderTheme = .light
+    @State private var showFontPanel = false
+    @State private var theme: ReaderTheme = .sepia
     @State private var fontSize = 18
     @State private var errorMessage: String?
     @State private var currentPage = 1
     @State private var totalPages = 1
     @State private var pageCommand: EPUBWebView.PageCommand = .none
+    @State private var isHoveringLeft = false
+    @State private var isHoveringRight = false
 
     @Environment(\.modelContext) private var modelContext
+
+    private var pagesLeftInChapter: Int {
+        max(0, totalPages - currentPage)
+    }
+
+    private var readingProgress: Double {
+        guard let service = epubService, !service.chapters.isEmpty else { return 0 }
+        let chapterFraction = totalPages > 1 ? Double(currentPage - 1) / Double(totalPages - 1) : 0
+        return (Double(currentChapterIndex) + chapterFraction) / Double(service.chapters.count)
+    }
 
     var body: some View {
         ZStack {
@@ -53,17 +66,6 @@ struct EPUBReaderView: View {
             onClose?()
             return .handled
         }
-        .sheet(isPresented: $showTOC) {
-            if let service = epubService {
-                TableOfContentsView(
-                    chapters: service.tableOfContents,
-                    currentIndex: currentChapterIndex
-                ) { index in
-                    navigateToChapter(index)
-                    showTOC = false
-                }
-            }
-        }
     }
 
     // MARK: - Reader Content
@@ -71,163 +73,256 @@ struct EPUBReaderView: View {
     @ViewBuilder
     private func readerContent(service: EPUBService) -> some View {
         VStack(spacing: 0) {
-            topBar(service: service)
+            readerToolbar(service: service)
 
-            EPUBWebView(
-                fileURL: service.chapters[currentChapterIndex].fileURL,
-                contentBaseURL: service.contentRootURL,
-                theme: theme,
-                fontSize: fontSize,
-                onPageInfo: { page, total in
-                    currentPage = page
-                    totalPages = total
-                },
-                onChapterEnd: { edge in
-                    switch edge {
-                    case .next:
-                        if currentChapterIndex < service.chapters.count - 1 {
-                            currentChapterIndex += 1
-                            currentPage = 1
-                            saveProgress()
+            // Main content area with side navigation arrows
+            ZStack {
+                EPUBWebView(
+                    fileURL: service.chapters[currentChapterIndex].fileURL,
+                    contentBaseURL: service.contentRootURL,
+                    theme: theme,
+                    fontSize: fontSize,
+                    onPageInfo: { page, total in
+                        currentPage = page
+                        totalPages = total
+                    },
+                    onChapterEnd: { edge in
+                        switch edge {
+                        case .next:
+                            if currentChapterIndex < service.chapters.count - 1 {
+                                currentChapterIndex += 1
+                                currentPage = 1
+                                saveProgress()
+                            }
+                        case .previous:
+                            if currentChapterIndex > 0 {
+                                currentChapterIndex -= 1
+                                currentPage = 1
+                                pageCommand = .goTo(1.0)
+                                saveProgress()
+                            }
                         }
-                    case .previous:
-                        if currentChapterIndex > 0 {
-                            currentChapterIndex -= 1
-                            currentPage = 1
-                            pageCommand = .goTo(1.0)
-                            saveProgress()
-                        }
-                    }
-                },
-                pageCommand: $pageCommand
-            )
+                    },
+                    pageCommand: $pageCommand
+                )
+
+                // Side navigation arrows
+                HStack(spacing: 0) {
+                    navigationArrow(isLeft: true)
+                    Spacer()
+                    navigationArrow(isLeft: false)
+                }
+            }
 
             bottomBar(service: service)
         }
     }
 
-    // MARK: - Top Bar
+    // MARK: - Toolbar
 
-    private func topBar(service: EPUBService) -> some View {
-        HStack(spacing: 16) {
-            Button { onClose?() } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .medium))
+    private func readerToolbar(service: EPUBService) -> some View {
+        HStack(spacing: 12) {
+            // Left: standalone page icon
+            Image(systemName: "doc.fill")
+                .font(.system(size: 13))
+                .foregroundStyle(theme.swiftUISecondary)
+                .frame(width: 28, height: 28)
+
+            // Left icon group: TOC, book spread, single page, scroll
+            HStack(spacing: 0) {
+                readerToolbarIcon(icon: "list.bullet") {
+                    showTOC.toggle()
+                }
+                .popover(isPresented: $showTOC, arrowEdge: .bottom) {
+                    TableOfContentsView(
+                        chapters: service.tableOfContents,
+                        currentIndex: currentChapterIndex,
+                        theme: theme
+                    ) { index in
+                        navigateToChapter(index)
+                        showTOC = false
+                    }
+                }
+
+                readerToolbarIcon(icon: "book") { }
+                readerToolbarIcon(icon: "rectangle.portrait") { }
+                readerToolbarIcon(icon: "rectangle.split.3x1") { }
             }
-            .buttonStyle(.borderless)
-            .foregroundStyle(theme.swiftUISecondary)
+            .background(
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(theme.swiftUIForeground.opacity(0.06))
+            )
 
             Spacer()
 
+            // Center: title
             Text(bookTitle)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(theme.swiftUISecondary)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.swiftUIForeground)
                 .lineLimit(1)
 
             Spacer()
 
+            // Right icon group: font size, search, bookmark
+            HStack(spacing: 0) {
+                Button { showFontPanel.toggle() } label: {
+                    Text("AA")
+                        .font(.system(size: 14, weight: .medium, design: .serif))
+                        .foregroundStyle(theme.swiftUISecondary)
+                        .frame(width: 34, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $showFontPanel, arrowEdge: .bottom) {
+                    fontControlsPanel()
+                }
+
+                readerToolbarIcon(icon: "magnifyingglass") { }
+                readerToolbarIcon(icon: "bookmark") { }
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(theme.swiftUIForeground.opacity(0.06))
+            )
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .padding(.top, 8) // Extra space for hidden title bar area
+    }
+
+    private func readerToolbarIcon(icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 13))
+                .foregroundStyle(theme.swiftUISecondary)
+                .frame(width: 34, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Font Controls Panel
+
+    private func fontControlsPanel() -> some View {
+        VStack(spacing: 16) {
             // Font size controls
-            HStack(spacing: 8) {
+            HStack(spacing: 16) {
                 Button {
                     fontSize = max(12, fontSize - 2)
                 } label: {
                     Text("A")
-                        .font(.system(size: 12))
+                        .font(.system(size: 14))
+                        .frame(width: 36, height: 36)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(theme.swiftUIForeground.opacity(0.08))
+                        )
                 }
-                .buttonStyle(.borderless)
-                .foregroundStyle(theme.swiftUISecondary)
+                .buttonStyle(.plain)
 
-                Text("\(fontSize)")
-                    .font(.system(size: 11, design: .monospaced))
+                Text("\(fontSize)px")
+                    .font(.system(size: 13, design: .monospaced))
                     .foregroundStyle(theme.swiftUISecondary)
-                    .frame(width: 22)
+                    .frame(width: 40)
 
                 Button {
                     fontSize = min(32, fontSize + 2)
                 } label: {
                     Text("A")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 18, weight: .medium))
+                        .frame(width: 36, height: 36)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(theme.swiftUIForeground.opacity(0.08))
+                        )
                 }
-                .buttonStyle(.borderless)
-                .foregroundStyle(theme.swiftUISecondary)
+                .buttonStyle(.plain)
             }
 
             // Theme picker
-            Picker(selection: $theme) {
+            HStack(spacing: 10) {
                 ForEach(ReaderTheme.allCases, id: \.self) { t in
-                    Text(t.rawValue).tag(t)
+                    Button {
+                        theme = t
+                    } label: {
+                        Circle()
+                            .fill(t.swiftUIBackground)
+                            .frame(width: 28, height: 28)
+                            .overlay(
+                                Circle()
+                                    .strokeBorder(
+                                        theme == t ? Color.accentColor : Color.gray.opacity(0.3),
+                                        lineWidth: theme == t ? 2 : 1
+                                    )
+                            )
+                    }
+                    .buttonStyle(.plain)
                 }
-            } label: {
-                EmptyView()
             }
-            .pickerStyle(.segmented)
-            .frame(width: 160)
-
-            // TOC button
-            Button { showTOC = true } label: {
-                Image(systemName: "list.bullet")
-                    .font(.system(size: 13))
-            }
-            .buttonStyle(.borderless)
-            .foregroundStyle(theme.swiftUISecondary)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 10)
-        .background(theme.swiftUIBackground)
-        .overlay(alignment: .bottom) {
-            Divider().opacity(0.5)
+        .padding(16)
+    }
+
+    // MARK: - Navigation Arrows
+
+    private func navigationArrow(isLeft: Bool) -> some View {
+        let isHovering = isLeft ? isHoveringLeft : isHoveringRight
+
+        return Button {
+            pageCommand = isLeft ? .previous : .next
+        } label: {
+            Text(isLeft ? "\u{2039}" : "\u{203A}")
+                .font(.system(size: 56, weight: .ultraLight))
+                .foregroundStyle(theme.swiftUISecondary.opacity(isHovering ? 0.8 : 0.35))
+                .frame(width: 56, maxHeight: .infinity)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                if isLeft {
+                    isHoveringLeft = hovering
+                } else {
+                    isHoveringRight = hovering
+                }
+            }
         }
     }
 
     // MARK: - Bottom Bar
 
     private func bottomBar(service: EPUBService) -> some View {
-        HStack {
-            Button {
-                navigateToChapter(currentChapterIndex - 1)
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 11))
-            }
-            .buttonStyle(.borderless)
-            .foregroundStyle(theme.swiftUISecondary)
-            .disabled(currentChapterIndex <= 0)
-            .opacity(currentChapterIndex <= 0 ? 0.3 : 1)
+        VStack(spacing: 0) {
+            HStack {
+                Spacer()
 
-            Spacer()
-
-            if let tocEntry = currentTOCEntry(service: service) {
-                Text(tocEntry.title)
-                    .font(.system(size: 11))
+                Text("\(currentPage) of \(totalPages)")
+                    .font(.system(size: 12))
                     .foregroundStyle(theme.swiftUISecondary)
-                    .lineLimit(1)
 
-                Text("  ·  ")
-                    .foregroundStyle(theme.swiftUISecondary.opacity(0.5))
+                Spacer()
+
+                if pagesLeftInChapter > 0 {
+                    Text("\(pagesLeftInChapter) page\(pagesLeftInChapter == 1 ? "" : "s") left in chapter")
+                        .font(.system(size: 12))
+                        .foregroundStyle(theme.swiftUISecondary.opacity(0.6))
+                }
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
 
-            Text("Page \(currentPage) of \(totalPages)")
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(theme.swiftUISecondary)
+            // Reading progress bar
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Rectangle()
+                        .fill(theme.swiftUISecondary.opacity(0.12))
 
-            Spacer()
-
-            Button {
-                navigateToChapter(currentChapterIndex + 1)
-            } label: {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11))
+                    Rectangle()
+                        .fill(theme.swiftUISecondary.opacity(0.35))
+                        .frame(width: geometry.size.width * readingProgress)
+                }
             }
-            .buttonStyle(.borderless)
-            .foregroundStyle(theme.swiftUISecondary)
-            .disabled(currentChapterIndex >= service.chapters.count - 1)
-            .opacity(currentChapterIndex >= service.chapters.count - 1 ? 0.3 : 1)
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 8)
-        .background(theme.swiftUIBackground)
-        .overlay(alignment: .top) {
-            Divider().opacity(0.5)
+            .frame(height: 3)
         }
     }
 

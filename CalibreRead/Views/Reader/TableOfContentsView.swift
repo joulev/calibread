@@ -3,50 +3,49 @@ import SwiftUI
 struct TableOfContentsView: View {
     let chapters: [EPUBService.Chapter]
     let currentIndex: Int
+    let theme: ReaderTheme
     let onSelect: (Int) -> Void
-
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text("Table of Contents")
-                    .font(.headline)
-                Spacer()
-                Button("Done") { dismiss() }
-                    .buttonStyle(.borderless)
-            }
-            .padding()
+            Text("Contents")
+                .font(.system(size: 15, weight: .semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
 
             Divider()
+                .opacity(0.5)
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    tocRows
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        let count = chapters.count
+                        if count > 0 {
+                            ForEach(0..<count, id: \.self) { (index: Int) in
+                                TocPopoverRow(
+                                    chapter: chapters[index],
+                                    isCurrent: chapters[index].id == currentIndex,
+                                    theme: theme,
+                                    onSelect: onSelect
+                                )
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .onAppear {
+                    proxy.scrollTo(currentIndex, anchor: .center)
                 }
             }
         }
-        .frame(width: 400, height: 500)
-    }
-
-    @ViewBuilder
-    private var tocRows: some View {
-        let count = chapters.count
-        if count > 0 {
-            ForEach(0..<count, id: \.self) { (index: Int) -> TocRow in
-                TocRow(
-                    chapter: chapters[index],
-                    isCurrent: chapters[index].id == currentIndex,
-                    onSelect: onSelect
-                )
-            }
-        }
+        .frame(width: 380, height: 500)
     }
 }
 
-private struct TocRow: View {
+private struct TocPopoverRow: View {
     let chapter: EPUBService.Chapter
     let isCurrent: Bool
+    let theme: ReaderTheme
     let onSelect: (Int) -> Void
 
     var body: some View {
@@ -55,17 +54,28 @@ private struct TocRow: View {
         } label: {
             HStack {
                 Text(chapter.title)
-                    .fontWeight(isCurrent ? .semibold : .regular)
+                    .font(.system(size: 14, weight: isCurrent ? .semibold : .regular))
+                    .lineLimit(2)
+
                 Spacer()
+
+                Text("\(chapter.id + 1)")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .padding(.horizontal, 8)
+            .background {
                 if isCurrent {
-                    Image(systemName: "checkmark")
-                        .foregroundStyle(Color.accentColor)
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(.quaternary)
+                        .padding(.horizontal, 8)
                 }
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .id(chapter.id)
     }
 }
