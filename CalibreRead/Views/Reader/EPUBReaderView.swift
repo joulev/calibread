@@ -400,8 +400,11 @@ struct EPUBReaderView: View {
                 viewportSize: contentSize
             )
 
-            let counts = await paginator.paginateAll { index, _ in
-                paginationProgress = index + 1
+            var counts: [Int] = []
+            while let result = await paginator.measureNext() {
+                guard !Task.isCancelled else { return }
+                counts.append(result.pageCount)
+                paginationProgress = result.index + 1
             }
 
             guard !Task.isCancelled else { return }
@@ -520,7 +523,7 @@ struct EPUBReaderView: View {
 // MARK: - Preference Key for content size measurement
 
 private struct ContentSizeKey: PreferenceKey {
-    static var defaultValue: CGSize = .zero
+    nonisolated(unsafe) static var defaultValue: CGSize = .zero
     static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
         value = nextValue()
     }
