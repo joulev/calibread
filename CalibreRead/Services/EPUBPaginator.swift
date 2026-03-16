@@ -10,6 +10,9 @@ import WebKit
 @MainActor
 final class EPUBPaginator: NSObject, WKNavigationDelegate {
     private let webView: WKWebView
+    /// Offscreen window that hosts the WKWebView — required for navigation
+    /// delegate callbacks to fire and for JS layout to work correctly.
+    private let hostWindow: NSWindow
     private let chapters: [EPUBService.Chapter]
     private let contentBaseURL: URL
     private let theme: ReaderTheme
@@ -31,7 +34,20 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
 
         let wv = WKWebView(frame: NSRect(origin: .zero, size: viewportSize), configuration: config)
         wv.setValue(false, forKey: "drawsBackground")
+
+        // Host the WKWebView in an offscreen window so that navigation
+        // delegate callbacks fire and CSS column layout is computed correctly.
+        let window = NSWindow(
+            contentRect: NSRect(origin: NSPoint(x: -20000, y: -20000), size: viewportSize),
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = wv
+        window.orderBack(nil)
+
         self.webView = wv
+        self.hostWindow = window
         self.chapters = chapters
         self.contentBaseURL = contentBaseURL
         self.theme = theme
@@ -39,6 +55,10 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
 
         super.init()
         webView.navigationDelegate = self
+    }
+
+    deinit {
+        hostWindow.orderOut(nil)
     }
 
     /// Measure the next chapter's page count. Returns `nil` when all chapters have been measured.

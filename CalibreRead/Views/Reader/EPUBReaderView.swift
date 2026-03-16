@@ -85,31 +85,30 @@ struct EPUBReaderView: View {
         }
         .navigationTitle(bookTitle)
         .toolbarTitleDisplayMode(.inline)
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .preferredColorScheme(theme == .dark ? .dark : .light)
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
-                ControlGroup {
-                    Button { showTOC.toggle() } label: {
-                        Label("Contents", systemImage: "list.bullet")
-                    }
-                    .popover(isPresented: $showTOC, arrowEdge: .bottom) {
-                        if let service = epubService {
-                            TableOfContentsView(
-                                chapters: service.tableOfContents,
-                                currentChapterHref: service.chapters[currentChapterIndex].href
-                            ) { tocChapter in
-                                navigateToTOCEntry(tocChapter)
-                                showTOC = false
-                            }
+                Button { showTOC.toggle() } label: {
+                    Label("Contents", systemImage: "list.bullet")
+                }
+                .popover(isPresented: $showTOC, arrowEdge: .bottom) {
+                    if let service = epubService {
+                        TableOfContentsView(
+                            chapters: service.tableOfContents,
+                            currentChapterHref: service.chapters[currentChapterIndex].href
+                        ) { tocChapter in
+                            navigateToTOCEntry(tocChapter)
+                            showTOC = false
                         }
                     }
+                }
 
-                    Button { showFontPanel.toggle() } label: {
-                        Label("Appearance", systemImage: "textformat.size")
-                    }
-                    .popover(isPresented: $showFontPanel, arrowEdge: .bottom) {
-                        fontControlsPanel()
-                    }
+                Button { showFontPanel.toggle() } label: {
+                    Label("Appearance", systemImage: "textformat.size")
+                }
+                .popover(isPresented: $showFontPanel, arrowEdge: .bottom) {
+                    fontControlsPanel()
                 }
             }
         }
