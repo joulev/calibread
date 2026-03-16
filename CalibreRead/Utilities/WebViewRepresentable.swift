@@ -252,12 +252,14 @@ struct EPUBWebView: NSViewRepresentable {
                 // Second recalculation for images that load late
                 setTimeout(function() { CalibreReader.recalculate(); }, 800);
 
-                // Recalculate on resize (window/sheet resized)
+                // Recalculate on resize — hide content while layout settles
                 var resizeTimer = null;
                 window.addEventListener('resize', function() {
+                    document.body.style.opacity = '0';
                     clearTimeout(resizeTimer);
                     resizeTimer = setTimeout(function() {
                         CalibreReader.recalculate();
+                        document.body.style.opacity = '1';
                     }, 150);
                 });
 

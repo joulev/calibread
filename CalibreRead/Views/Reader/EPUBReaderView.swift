@@ -44,6 +44,35 @@ struct EPUBReaderView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .navigationTitle(bookTitle)
+        .toolbarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .navigation) {
+                ControlGroup {
+                    Button { showTOC.toggle() } label: {
+                        Label("Contents", systemImage: "list.bullet")
+                    }
+                    .popover(isPresented: $showTOC, arrowEdge: .bottom) {
+                        if let service = epubService {
+                            TableOfContentsView(
+                                chapters: service.tableOfContents,
+                                currentChapterHref: service.chapters[currentChapterIndex].href
+                            ) { tocChapter in
+                                navigateToTOCEntry(tocChapter)
+                                showTOC = false
+                            }
+                        }
+                    }
+
+                    Button { showFontPanel.toggle() } label: {
+                        Label("Appearance", systemImage: "textformat.size")
+                    }
+                    .popover(isPresented: $showFontPanel, arrowEdge: .bottom) {
+                        fontControlsPanel()
+                    }
+                }
+            }
+        }
         .onAppear(perform: loadEPUB)
         .onDisappear(perform: saveProgress)
         .onKeyPress(.leftArrow) {
@@ -69,9 +98,6 @@ struct EPUBReaderView: View {
     @ViewBuilder
     private func readerContent(service: EPUBService) -> some View {
         VStack(spacing: 0) {
-            readerToolbar(service: service)
-                .padding(.top, 6) // Vertically center with traffic lights
-
             // Main content area with side navigation arrows
             ZStack {
                 EPUBWebView(
@@ -115,64 +141,6 @@ struct EPUBReaderView: View {
         }
     }
 
-    // MARK: - Toolbar
-
-    private func readerToolbar(service: EPUBService) -> some View {
-        HStack(spacing: 12) {
-            // TOC button
-            readerToolbarIcon(icon: "list.bullet") {
-                showTOC.toggle()
-            }
-            .popover(isPresented: $showTOC, arrowEdge: .bottom) {
-                TableOfContentsView(
-                    chapters: service.tableOfContents,
-                    currentIndex: currentChapterIndex
-                ) { index in
-                    navigateToChapter(index)
-                    showTOC = false
-                }
-            }
-
-            Spacer()
-
-            // Center: title
-            Text(bookTitle)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(theme.swiftUIForeground)
-                .lineLimit(1)
-
-            Spacer()
-
-            // Theme/font button
-            Button { showFontPanel.toggle() } label: {
-                Text("AA")
-                    .font(.system(size: 14, weight: .medium, design: .serif))
-                    .foregroundStyle(theme.swiftUISecondary)
-                    .frame(width: 34, height: 28)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .popover(isPresented: $showFontPanel, arrowEdge: .bottom) {
-                fontControlsPanel()
-            }
-        }
-        // Left padding clears traffic light buttons (~76px)
-        .padding(.leading, 76)
-        .padding(.trailing, 16)
-        .frame(height: 28)
-    }
-
-    private func readerToolbarIcon(icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 13))
-                .foregroundStyle(theme.swiftUISecondary)
-                .frame(width: 34, height: 28)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
     // MARK: - Font Controls Panel
 
     private func fontControlsPanel() -> some View {
@@ -187,14 +155,14 @@ struct EPUBReaderView: View {
                         .frame(width: 36, height: 36)
                         .background(
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(theme.swiftUIForeground.opacity(0.08))
+                                .fill(.quaternary)
                         )
                 }
                 .buttonStyle(.plain)
 
                 Text("\(fontSize)px")
                     .font(.system(size: 13, design: .monospaced))
-                    .foregroundStyle(theme.swiftUISecondary)
+                    .foregroundStyle(.secondary)
                     .frame(width: 40)
 
                 Button {
@@ -205,7 +173,7 @@ struct EPUBReaderView: View {
                         .frame(width: 36, height: 36)
                         .background(
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(theme.swiftUIForeground.opacity(0.08))
+                                .fill(.quaternary)
                         )
                 }
                 .buttonStyle(.plain)
@@ -287,17 +255,6 @@ struct EPUBReaderView: View {
         }
     }
 
-    // MARK: - Helpers
-
-    private func currentTOCEntry(service: EPUBService) -> EPUBService.Chapter? {
-        let currentFileURL = service.chapters[currentChapterIndex].fileURL
-        return service.tableOfContents.last { tocChapter in
-            let tocBase = tocChapter.href.components(separatedBy: "#").first ?? tocChapter.href
-            let currentBase = currentFileURL.lastPathComponent
-            return tocBase.hasSuffix(currentBase) || currentBase.hasSuffix(tocBase)
-        }
-    }
-
     // MARK: - Actions
 
     private func loadEPUB() {
@@ -310,12 +267,20 @@ struct EPUBReaderView: View {
         }
     }
 
-    private func navigateToChapter(_ index: Int) {
-        guard let service = epubService,
-              index >= 0, index < service.chapters.count else { return }
-        currentChapterIndex = index
-        currentPage = 1
-        saveProgress()
+    /// Navigate to a TOC entry by matching its href against the spine chapters.
+    private func navigateToTOCEntry(_ tocChapter: EPUBService.Chapter) {
+        guard let service = epubService else { return }
+        let tocBase = tocChapter.href.components(separatedBy: "#").first ?? tocChapter.href
+        if let spineIndex = service.chapters.firstIndex(where: { spine in
+            let spineBase = spine.href.components(separatedBy: "#").first ?? spine.href
+            return spineBase == tocBase
+                || spineBase.hasSuffix("/\(tocBase)")
+                || tocBase.hasSuffix("/\(spineBase)")
+        }) {
+            currentChapterIndex = spineIndex
+            currentPage = 1
+            saveProgress()
+        }
     }
 
     private func saveProgress() {
