@@ -1,58 +1,66 @@
 import SwiftUI
 
+enum SidebarItem: Hashable {
+    case allBooks
+    case author(CalibreAuthor)
+    case series(CalibreSeries)
+    case tag(CalibreTag)
+}
+
 struct SidebarView: View {
     @Environment(LibraryManager.self) private var library
 
-    var body: some View {
-        @Bindable var library = library
+    var selection: SidebarItem? {
+        if let author = library.selectedAuthor { return .author(author) }
+        if let series = library.selectedSeries { return .series(series) }
+        if let tag = library.selectedTag { return .tag(tag) }
+        if library.selectedAuthor == nil && library.selectedSeries == nil && library.selectedTag == nil {
+            return .allBooks
+        }
+        return nil
+    }
 
-        List {
-            Section("Library") {
-                Button {
-                    library.clearFilters()
-                } label: {
-                    Label("All Books", systemImage: "books.vertical")
+    var body: some View {
+        List(selection: Binding(
+            get: { selection },
+            set: { newValue in
+                guard let newValue else { return }
+                library.clearFilters()
+                switch newValue {
+                case .allBooks:
+                    break
+                case .author(let author):
+                    library.selectedAuthor = author
+                case .series(let series):
+                    library.selectedSeries = series
+                case .tag(let tag):
+                    library.selectedTag = tag
                 }
-                .buttonStyle(.plain)
-                .fontWeight(library.selectedAuthor == nil && library.selectedTag == nil && library.selectedSeries == nil ? .semibold : .regular)
+            }
+        )) {
+            Section("Library") {
+                Label("All Books", systemImage: "books.vertical")
+                    .tag(SidebarItem.allBooks)
             }
 
             Section("Authors") {
                 ForEach(library.authors, id: \.id) { author in
-                    Button {
-                        library.clearFilters()
-                        library.selectedAuthor = author
-                    } label: {
-                        Label(author.name, systemImage: "person")
-                    }
-                    .buttonStyle(.plain)
-                    .fontWeight(library.selectedAuthor == author ? .semibold : .regular)
+                    Label(author.name, systemImage: "person")
+                        .tag(SidebarItem.author(author))
                 }
             }
 
             Section("Series") {
                 ForEach(library.seriesList, id: \.id) { series in
-                    Button {
-                        library.clearFilters()
-                        library.selectedSeries = series
-                    } label: {
-                        Label(series.name, systemImage: "text.book.closed")
-                    }
-                    .buttonStyle(.plain)
-                    .fontWeight(library.selectedSeries == series ? .semibold : .regular)
+                    Label(series.name, systemImage: "text.book.closed")
+                        .tag(SidebarItem.series(series))
                 }
             }
 
             Section("Tags") {
                 ForEach(library.tags, id: \.id) { tag in
-                    Button {
-                        library.clearFilters()
-                        library.selectedTag = tag
-                    } label: {
-                        Label(tag.name, systemImage: "tag")
-                    }
-                    .buttonStyle(.plain)
-                    .fontWeight(library.selectedTag == tag ? .semibold : .regular)
+                    Label(tag.name, systemImage: "tag")
+                        .tag(SidebarItem.tag(tag))
                 }
             }
         }
