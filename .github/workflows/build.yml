@@ -4,6 +4,9 @@ on:
   push:
     branches: ["*"]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: write
 
@@ -11,7 +14,7 @@ jobs:
   build:
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Resolve SPM dependencies
         run: xcodebuild -resolvePackageDependencies -project CalibreRead.xcodeproj -scheme CalibreRead
@@ -36,7 +39,7 @@ jobs:
           ditto -c -k --keepParent "$APP_PATH" CalibreRead.zip
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: CalibreRead-${{ github.sha }}
           path: CalibreRead.zip
