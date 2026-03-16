@@ -1,32 +1,6 @@
 import SwiftUI
 import SwiftData
 import AppKit
-import os.log
-
-/// Diagnostic logger that writes to both os_log (Console.app) and a file on disk.
-/// The file is at ~/Library/Logs/CalibreRead-debug.log.
-private func debugLog(_ message: String) {
-    let logger = Logger(subsystem: "com.calibreread.debug", category: "pagination")
-    logger.warning("\(message, privacy: .public)")
-    NSLog("%@", message)
-
-    // Also write to a file as a failsafe
-    let logFile = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Logs/CalibreRead-debug.log")
-    let timestamp = ISO8601DateFormatter().string(from: Date())
-    let line = "[\(timestamp)] \(message)\n"
-    if let data = line.data(using: .utf8) {
-        if FileManager.default.fileExists(atPath: logFile.path) {
-            if let handle = try? FileHandle(forWritingTo: logFile) {
-                handle.seekToEndOfFile()
-                handle.write(data)
-                handle.closeFile()
-            }
-        } else {
-            try? data.write(to: logFile)
-        }
-    }
-}
 
 struct EPUBReaderView: View {
     let bookURL: URL
@@ -51,18 +25,8 @@ struct EPUBReaderView: View {
     // Pagination state
     @State private var sectionPageCounts: [Int]? = nil
     @State private var paginationProgress = 0
+    @State private var paginationTask: Task<Void, Never>?
     @State private var contentSize: CGSize = .zero
-
-    /// Combines all values that should trigger a pagination restart.
-    private var paginationTrigger: PaginationTrigger {
-        PaginationTrigger(
-            hasService: epubService != nil,
-            width: contentSize.width,
-            height: contentSize.height,
-            fontSize: fontSize,
-            theme: theme
-        )
-    }
 
     @Environment(\.modelContext) private var modelContext
 
@@ -158,6 +122,7 @@ struct EPUBReaderView: View {
         .onAppear(perform: loadEPUB)
         .onDisappear {
             saveProgress()
+            paginationTask?.cancel()
         }
         .onKeyPress(.leftArrow) {
             pageController.previousPage()
@@ -175,8 +140,14 @@ struct EPUBReaderView: View {
             onClose?()
             return .handled
         }
-        .task(id: paginationTrigger) {
-            await runPagination()
+        .onChange(of: fontSize) { _, _ in
+            startPagination()
+        }
+        .onChange(of: theme) { _, _ in
+            startPagination()
+        }
+        .onChange(of: contentSize) { _, _ in
+            startPagination()
         }
     }
 
@@ -189,49 +160,48 @@ struct EPUBReaderView: View {
             HStack(spacing: 0) {
                 navigationArrow(isLeft: true)
 
-                GeometryReader { geo in
-                    EPUBWebView(
-                        fileURL: service.chapters[currentChapterIndex].fileURL,
-                        contentBaseURL: service.contentRootURL,
-                        theme: theme,
-                        fontSize: fontSize,
-                        controller: pageController,
-                        onPageInfo: { page, total in
-                            currentPage = page
-                            totalPages = total
-                            // Keep paginated counts in sync with the live WKWebView
-                            if var counts = sectionPageCounts, currentChapterIndex < counts.count {
-                                counts[currentChapterIndex] = total
-                                sectionPageCounts = counts
-                            }
-                        },
-                        onChapterEnd: { edge in
-                            switch edge {
-                            case .next:
-                                if currentChapterIndex < service.chapters.count - 1 {
-                                    currentChapterIndex += 1
-                                    currentPage = 1
-                                    saveProgress()
-                                }
-                            case .previous:
-                                if currentChapterIndex > 0 {
-                                    currentChapterIndex -= 1
-                                    currentPage = 1
-                                    pageController.pendingFraction = 1.0
-                                    saveProgress()
-                                }
-                            }
+                EPUBWebView(
+                    fileURL: service.chapters[currentChapterIndex].fileURL,
+                    contentBaseURL: service.contentRootURL,
+                    theme: theme,
+                    fontSize: fontSize,
+                    controller: pageController,
+                    onPageInfo: { page, total in
+                        currentPage = page
+                        totalPages = total
+                        // Keep paginated counts in sync with the live WKWebView
+                        if var counts = sectionPageCounts, currentChapterIndex < counts.count {
+                            counts[currentChapterIndex] = total
+                            sectionPageCounts = counts
                         }
-                    )
-                    .onChange(of: geo.size) { _, newSize in
-                        if newSize.width > 0, newSize.height > 0 {
-                            contentSize = newSize
+                    },
+                    onChapterEnd: { edge in
+                        switch edge {
+                        case .next:
+                            if currentChapterIndex < service.chapters.count - 1 {
+                                currentChapterIndex += 1
+                                currentPage = 1
+                                saveProgress()
+                            }
+                        case .previous:
+                            if currentChapterIndex > 0 {
+                                currentChapterIndex -= 1
+                                currentPage = 1
+                                pageController.pendingFraction = 1.0
+                                saveProgress()
+                            }
                         }
                     }
-                    .onAppear {
-                        if geo.size.width > 0, geo.size.height > 0 {
-                            contentSize = geo.size
-                        }
+                )
+                .background {
+                    GeometryReader { geo in
+                        Color.clear
+                            .preference(key: ContentSizeKey.self, value: geo.size)
+                    }
+                }
+                .onPreferenceChange(ContentSizeKey.self) { size in
+                    if size.width > 0, size.height > 0 {
+                        contentSize = size
                     }
                 }
 
@@ -415,57 +385,37 @@ struct EPUBReaderView: View {
 
     // MARK: - Pagination
 
-    /// Runs pagination as a structured task. Called by `.task(id: paginationTrigger)`.
-    /// SwiftUI automatically cancels this when `paginationTrigger` changes (e.g. font
-    /// size, theme, window resize) and restarts with the new values.
-    private func runPagination() async {
+    private func startPagination() {
         guard let service = epubService,
-              contentSize.width > 0, contentSize.height > 0 else {
-            debugLog("[EPUBReader] runPagination: SKIPPED — epubService=\(epubService != nil), contentSize=\(contentSize.width)x\(contentSize.height)")
-            return
-        }
+              contentSize.width > 0, contentSize.height > 0 else { return }
 
-        debugLog("[EPUBReader] runPagination: STARTING with \(service.chapters.count) chapters, contentSize=\(contentSize.width)x\(contentSize.height), fontSize=\(fontSize), theme=\(theme)")
-
+        paginationTask?.cancel()
         sectionPageCounts = nil
         paginationProgress = 0
 
-        // Small debounce for rapid changes (font size adjustment, window resize).
-        // If the trigger changes again during this sleep, SwiftUI cancels this
-        // task and starts a new one automatically.
-        try? await Task.sleep(for: .milliseconds(300))
-        guard !Task.isCancelled else {
-            debugLog("[EPUBReader] runPagination: cancelled after debounce")
-            return
-        }
+        paginationTask = Task {
+            // Small debounce for rapid changes (font size adjustment, window resize)
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
 
-        debugLog("[EPUBReader] runPagination: creating paginator")
+            let paginator = EPUBPaginator(
+                chapters: service.chapters,
+                contentBaseURL: service.contentRootURL,
+                theme: theme,
+                fontSize: fontSize,
+                viewportSize: contentSize
+            )
 
-        let paginator = EPUBPaginator(
-            chapters: service.chapters,
-            contentBaseURL: service.contentRootURL,
-            theme: theme,
-            fontSize: fontSize,
-            viewportSize: contentSize
-        )
-
-        var counts: [Int] = []
-        while let result = await paginator.measureNext() {
-            guard !Task.isCancelled else {
-                debugLog("[EPUBReader] runPagination: cancelled at chapter \(result.index)")
-                return
+            var counts: [Int] = []
+            while let result = await paginator.measureNext() {
+                guard !Task.isCancelled else { return }
+                counts.append(result.pageCount)
+                paginationProgress = result.index + 1
             }
-            counts.append(result.pageCount)
-            paginationProgress = result.index + 1
-            debugLog("[EPUBReader] runPagination: chapter \(result.index) done, pageCount=\(result.pageCount), progress=\(paginationProgress)/\(service.chapters.count)")
-        }
 
-        guard !Task.isCancelled else {
-            debugLog("[EPUBReader] runPagination: cancelled after loop")
-            return
+            guard !Task.isCancelled else { return }
+            sectionPageCounts = counts
         }
-        sectionPageCounts = counts
-        debugLog("[EPUBReader] runPagination: COMPLETE! totalPages=\(counts.reduce(0, +))")
     }
 
     // MARK: - Actions
@@ -576,13 +526,11 @@ struct EPUBReaderView: View {
     }
 }
 
-// MARK: - Pagination Trigger
+// MARK: - Preference Key for content size measurement
 
-/// Hashable value combining everything that should restart pagination.
-private struct PaginationTrigger: Equatable {
-    let hasService: Bool
-    let width: CGFloat
-    let height: CGFloat
-    let fontSize: Int
-    let theme: ReaderTheme
+private struct ContentSizeKey: PreferenceKey {
+    nonisolated(unsafe) static var defaultValue: CGSize = .zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        value = nextValue()
+    }
 }
