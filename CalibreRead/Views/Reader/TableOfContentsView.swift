@@ -2,8 +2,8 @@ import SwiftUI
 
 struct TableOfContentsView: View {
     let chapters: [EPUBService.Chapter]
-    let currentIndex: Int
-    let onSelect: (Int) -> Void
+    let currentChapterHref: String
+    let onSelect: (EPUBService.Chapter) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -21,9 +21,10 @@ struct TableOfContentsView: View {
                         let count = chapters.count
                         if count > 0 {
                             ForEach(0..<count, id: \.self) { (index: Int) in
+                                let chapter = chapters[index]
                                 TocPopoverRow(
-                                    chapter: chapters[index],
-                                    isCurrent: chapters[index].id == currentIndex,
+                                    chapter: chapter,
+                                    isCurrent: isCurrentChapter(chapter),
                                     onSelect: onSelect
                                 )
                             }
@@ -32,22 +33,33 @@ struct TableOfContentsView: View {
                     .padding(.vertical, 4)
                 }
                 .onAppear {
-                    proxy.scrollTo(currentIndex, anchor: .center)
+                    // Scroll to the current chapter
+                    if let current = chapters.first(where: { isCurrentChapter($0) }) {
+                        proxy.scrollTo(current.id, anchor: .center)
+                    }
                 }
             }
         }
         .frame(width: 340, height: 500)
+    }
+
+    private func isCurrentChapter(_ chapter: EPUBService.Chapter) -> Bool {
+        let tocBase = chapter.href.components(separatedBy: "#").first ?? chapter.href
+        let currentBase = currentChapterHref.components(separatedBy: "#").first ?? currentChapterHref
+        return tocBase == currentBase
+            || tocBase.hasSuffix("/\(currentBase)")
+            || currentBase.hasSuffix("/\(tocBase)")
     }
 }
 
 private struct TocPopoverRow: View {
     let chapter: EPUBService.Chapter
     let isCurrent: Bool
-    let onSelect: (Int) -> Void
+    let onSelect: (EPUBService.Chapter) -> Void
 
     var body: some View {
         Button {
-            onSelect(chapter.id)
+            onSelect(chapter)
         } label: {
             HStack {
                 Text(chapter.title)
