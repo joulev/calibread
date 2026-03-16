@@ -79,7 +79,7 @@ struct BookDetailView: View {
                 if !book.tags.isEmpty {
                     Divider()
                     FlowLayout(spacing: 6) {
-                        ForEach(book.tags) { tag in
+                        ForEach(book.tags, id: \.id) { tag in
                             Text(tag.name)
                                 .font(.caption)
                                 .padding(.horizontal, 8)

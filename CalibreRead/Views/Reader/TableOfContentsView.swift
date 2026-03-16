@@ -20,23 +20,21 @@ struct TableOfContentsView: View {
 
             Divider()
 
-            List {
-                ForEach(chapters) { chapter in
-                    Button {
-                        onSelect(chapter.id)
-                    } label: {
-                        HStack {
-                            Text(chapter.title)
-                                .fontWeight(chapter.id == currentIndex ? .semibold : .regular)
-                            Spacer()
-                            if chapter.id == currentIndex {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(.accentColor)
-                            }
+            List(chapters, id: \.id) { chapter in
+                Button {
+                    onSelect(chapter.id)
+                } label: {
+                    HStack {
+                        Text(chapter.title)
+                            .fontWeight(chapter.id == currentIndex ? .semibold : .regular)
+                        Spacer()
+                        if chapter.id == currentIndex {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(.accentColor)
                         }
                     }
-                    .buttonStyle(.plain)
                 }
+                .buttonStyle(.plain)
             }
         }
         .frame(width: 400, height: 500)

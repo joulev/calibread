@@ -30,7 +30,7 @@ struct LibraryView: View {
             case .grid:
                 ScrollView {
                     LazyVGrid(columns: gridColumns, spacing: 20) {
-                        ForEach(library.filteredBooks) { book in
+                        ForEach(library.filteredBooks, id: \.id) { book in
                             BookGridItem(book: book, libraryRoot: library.libraryURL!)
                                 .onTapGesture {
                                     selectedBook = book
@@ -43,7 +43,7 @@ struct LibraryView: View {
                     .padding()
                 }
             case .list:
-                List(library.filteredBooks, selection: $selectedBook) { book in
+                List(library.filteredBooks, id: \.id, selection: $selectedBook) { book in
                     BookListRow(book: book, libraryRoot: library.libraryURL!)
                         .tag(book)
                         .onTapGesture(count: 2) {
@@ -59,7 +59,7 @@ struct LibraryView: View {
         .toolbar {
             ToolbarItemGroup {
                 Picker("Sort", selection: Bindable(library).sortOrder) {
-                    ForEach(LibraryManager.SortOrder.allCases) { order in
+                    ForEach(LibraryManager.SortOrder.allCases, id: \.self) { order in
                         Text(order.rawValue).tag(order)
                     }
                 }

@@ -97,7 +97,7 @@ struct EPUBReaderView: View {
 
             // Theme picker
             Picker("Theme", selection: $theme) {
-                ForEach(ReaderTheme.allCases) { t in
+                ForEach(ReaderTheme.allCases, id: \.self) { t in
                     Label(t.rawValue, systemImage: t.icon).tag(t)
                 }
             }

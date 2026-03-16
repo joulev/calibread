@@ -95,7 +95,7 @@ final class EPUBService {
 
             return Chapter(
                 id: index,
-                title: item.label ?? "Section \(index + 1)",
+                title: item.label,
                 href: href,
                 fileURL: fileURL
             )
