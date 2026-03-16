@@ -20,26 +20,52 @@ struct TableOfContentsView: View {
 
             Divider()
 
-            List {
-                ForEach(0..<chapters.count, id: \.self) { index in
-                    let chapter = chapters[index]
-                    Button {
-                        onSelect(chapter.id)
-                    } label: {
-                        HStack {
-                            Text(chapter.title)
-                                .fontWeight(chapter.id == currentIndex ? .semibold : .regular)
-                            Spacer()
-                            if chapter.id == currentIndex {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(.accentColor)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    tocRows
                 }
             }
         }
         .frame(width: 400, height: 500)
+    }
+
+    @ViewBuilder
+    private var tocRows: some View {
+        let count = chapters.count
+        if count > 0 {
+            ForEach(0..<count, id: \.self) { (index: Int) -> TocRow in
+                TocRow(
+                    chapter: chapters[index],
+                    isCurrent: chapters[index].id == currentIndex,
+                    onSelect: onSelect
+                )
+            }
+        }
+    }
+}
+
+private struct TocRow: View {
+    let chapter: EPUBService.Chapter
+    let isCurrent: Bool
+    let onSelect: (Int) -> Void
+
+    var body: some View {
+        Button {
+            onSelect(chapter.id)
+        } label: {
+            HStack {
+                Text(chapter.title)
+                    .fontWeight(isCurrent ? .semibold : .regular)
+                Spacer()
+                if isCurrent {
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(.accentColor)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
