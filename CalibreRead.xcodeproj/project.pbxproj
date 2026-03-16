@@ -1,0 +1,530 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10001 /* CalibreReadApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001; };
+		A10002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10002; };
+		A10003 /* CalibreBook.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10003; };
+		A10004 /* CalibreAuthor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10004; };
+		A10005 /* CalibreSeries.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10005; };
+		A10006 /* CalibreTag.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10006; };
+		A10007 /* ReadingProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10007; };
+		A10008 /* CalibreDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10008; };
+		A10009 /* EPUBService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10009; };
+		A10010 /* LibraryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10010; };
+		A10011 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10011; };
+		A10012 /* BookGridItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10012; };
+		A10013 /* BookListRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10013; };
+		A10014 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10014; };
+		A10015 /* BookDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10015; };
+		A10016 /* ReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10016; };
+		A10017 /* EPUBReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10017; };
+		A10018 /* PDFReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10018; };
+		A10019 /* TableOfContentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10019; };
+		A10020 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10020; };
+		A10021 /* WebViewRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10021; };
+		A10022 /* PDFViewRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10022; };
+		A10023 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10023; };
+		A10024 /* reader.css in Resources */ = {isa = PBXBuildFile; fileRef = B10024; };
+		A10030 /* SQLite in Frameworks */ = {isa = PBXBuildFile; productRef = D10001; };
+		A10031 /* EPUBKit in Frameworks */ = {isa = PBXBuildFile; productRef = D10002; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B10000 /* CalibreRead.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CalibreRead.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10001 /* CalibreReadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibreReadApp.swift; sourceTree = "<group>"; };
+		B10002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		B10003 /* CalibreBook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibreBook.swift; sourceTree = "<group>"; };
+		B10004 /* CalibreAuthor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibreAuthor.swift; sourceTree = "<group>"; };
+		B10005 /* CalibreSeries.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibreSeries.swift; sourceTree = "<group>"; };
+		B10006 /* CalibreTag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibreTag.swift; sourceTree = "<group>"; };
+		B10007 /* ReadingProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingProgress.swift; sourceTree = "<group>"; };
+		B10008 /* CalibreDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibreDatabase.swift; sourceTree = "<group>"; };
+		B10009 /* EPUBService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPUBService.swift; sourceTree = "<group>"; };
+		B10010 /* LibraryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryManager.swift; sourceTree = "<group>"; };
+		B10011 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		B10012 /* BookGridItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookGridItem.swift; sourceTree = "<group>"; };
+		B10013 /* BookListRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookListRow.swift; sourceTree = "<group>"; };
+		B10014 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
+		B10015 /* BookDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookDetailView.swift; sourceTree = "<group>"; };
+		B10016 /* ReaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderView.swift; sourceTree = "<group>"; };
+		B10017 /* EPUBReaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPUBReaderView.swift; sourceTree = "<group>"; };
+		B10018 /* PDFReaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFReaderView.swift; sourceTree = "<group>"; };
+		B10019 /* TableOfContentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TableOfContentsView.swift; sourceTree = "<group>"; };
+		B10020 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		B10021 /* WebViewRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewRepresentable.swift; sourceTree = "<group>"; };
+		B10022 /* PDFViewRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFViewRepresentable.swift; sourceTree = "<group>"; };
+		B10023 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B10024 /* reader.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = reader.css; sourceTree = "<group>"; };
+		B10025 /* CalibreRead.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CalibreRead.entitlements; sourceTree = "<group>"; };
+		B10026 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C10001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10030 /* SQLite in Frameworks */,
+				A10031 /* EPUBKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		G10000 = {
+			isa = PBXGroup;
+			children = (
+				G10001 /* CalibreRead */,
+				G10099 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		G10001 /* CalibreRead */ = {
+			isa = PBXGroup;
+			children = (
+				B10001 /* CalibreReadApp.swift */,
+				B10025 /* CalibreRead.entitlements */,
+				B10026 /* Info.plist */,
+				B10023 /* Assets.xcassets */,
+				G10002 /* Models */,
+				G10003 /* Services */,
+				G10004 /* Views */,
+				G10008 /* Utilities */,
+				G10009 /* Resources */,
+			);
+			path = CalibreRead;
+			sourceTree = "<group>";
+		};
+		G10002 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				B10003 /* CalibreBook.swift */,
+				B10004 /* CalibreAuthor.swift */,
+				B10005 /* CalibreSeries.swift */,
+				B10006 /* CalibreTag.swift */,
+				B10007 /* ReadingProgress.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		G10003 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				B10008 /* CalibreDatabase.swift */,
+				B10009 /* EPUBService.swift */,
+				B10010 /* LibraryManager.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		G10004 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				B10002 /* ContentView.swift */,
+				G10005 /* Library */,
+				G10006 /* Reader */,
+				G10007 /* Settings */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		G10005 /* Library */ = {
+			isa = PBXGroup;
+			children = (
+				B10011 /* LibraryView.swift */,
+				B10012 /* BookGridItem.swift */,
+				B10013 /* BookListRow.swift */,
+				B10014 /* SidebarView.swift */,
+				B10015 /* BookDetailView.swift */,
+			);
+			path = Library;
+			sourceTree = "<group>";
+		};
+		G10006 /* Reader */ = {
+			isa = PBXGroup;
+			children = (
+				B10016 /* ReaderView.swift */,
+				B10017 /* EPUBReaderView.swift */,
+				B10018 /* PDFReaderView.swift */,
+				B10019 /* TableOfContentsView.swift */,
+			);
+			path = Reader;
+			sourceTree = "<group>";
+		};
+		G10007 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				B10020 /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		G10008 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				B10021 /* WebViewRepresentable.swift */,
+				B10022 /* PDFViewRepresentable.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		G10009 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				B10024 /* reader.css */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		G10099 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B10000 /* CalibreRead.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		T10001 /* CalibreRead */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = X10003 /* Build configuration list for PBXNativeTarget "CalibreRead" */;
+			buildPhases = (
+				P10001 /* Sources */,
+				C10001 /* Frameworks */,
+				P10002 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CalibreRead;
+			packageProductDependencies = (
+				D10001 /* SQLite */,
+				D10002 /* EPUBKit */,
+			);
+			productName = CalibreRead;
+			productReference = B10000 /* CalibreRead.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		R10001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1540;
+				LastUpgradeCheck = 1540;
+				TargetAttributes = {
+					T10001 = {
+						CreatedOnToolsVersion = 15.4;
+					};
+				};
+			};
+			buildConfigurationList = X10001 /* Build configuration list for PBXProject "CalibreRead" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = G10000;
+			packageReferences = (
+				E10001 /* XCRemoteSwiftPackageReference "SQLite.swift" */,
+				E10002 /* XCRemoteSwiftPackageReference "EPUBKit" */,
+			);
+			productRefGroup = G10099 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				T10001 /* CalibreRead */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		P10002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10023 /* Assets.xcassets in Resources */,
+				A10024 /* reader.css in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		P10001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10001 /* CalibreReadApp.swift in Sources */,
+				A10002 /* ContentView.swift in Sources */,
+				A10003 /* CalibreBook.swift in Sources */,
+				A10004 /* CalibreAuthor.swift in Sources */,
+				A10005 /* CalibreSeries.swift in Sources */,
+				A10006 /* CalibreTag.swift in Sources */,
+				A10007 /* ReadingProgress.swift in Sources */,
+				A10008 /* CalibreDatabase.swift in Sources */,
+				A10009 /* EPUBService.swift in Sources */,
+				A10010 /* LibraryManager.swift in Sources */,
+				A10011 /* LibraryView.swift in Sources */,
+				A10012 /* BookGridItem.swift in Sources */,
+				A10013 /* BookListRow.swift in Sources */,
+				A10014 /* SidebarView.swift in Sources */,
+				A10015 /* BookDetailView.swift in Sources */,
+				A10016 /* ReaderView.swift in Sources */,
+				A10017 /* EPUBReaderView.swift in Sources */,
+				A10018 /* PDFReaderView.swift in Sources */,
+				A10019 /* TableOfContentsView.swift in Sources */,
+				A10020 /* SettingsView.swift in Sources */,
+				A10021 /* WebViewRepresentable.swift in Sources */,
+				A10022 /* PDFViewRepresentable.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		F10001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		F10002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		F10003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = CalibreRead/CalibreRead.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CalibreRead/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = CalibreRead;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.books";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.calibreread.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		F10004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = CalibreRead/CalibreRead.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = CalibreRead/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = CalibreRead;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.books";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.calibreread.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		X10001 /* Build configuration list for PBXProject "CalibreRead" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F10001 /* Debug */,
+				F10002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		X10003 /* Build configuration list for PBXNativeTarget "CalibreRead" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F10003 /* Debug */,
+				F10004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		E10001 /* XCRemoteSwiftPackageReference "SQLite.swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stephencelis/SQLite.swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.15.3;
+			};
+		};
+		E10002 /* XCRemoteSwiftPackageReference "EPUBKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/witekbobrowski/EPUBKit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.5.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		D10001 /* SQLite */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E10001 /* XCRemoteSwiftPackageReference "SQLite.swift" */;
+			productName = SQLite;
+		};
+		D10002 /* EPUBKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E10002 /* XCRemoteSwiftPackageReference "EPUBKit" */;
+			productName = EPUBKit;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = R10001 /* Project object */;
+}
