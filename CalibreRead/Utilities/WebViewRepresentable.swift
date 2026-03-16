@@ -1,22 +1,37 @@
 import SwiftUI
 import WebKit
 
+/// Controller that provides direct access to the WKWebView for page navigation.
+/// Arrow buttons and key handlers call methods here, which execute JS immediately
+/// on the webview — bypassing the error-prone updateNSView/pageCommand path.
+@MainActor
+@Observable
+final class EPUBPageController {
+    fileprivate weak var webView: WKWebView?
+    /// Fraction to navigate to once the next chapter finishes loading.
+    var pendingFraction: Double?
+
+    func nextPage() {
+        webView?.evaluateJavaScript("CalibreReader.nextPage()", completionHandler: nil)
+    }
+
+    func previousPage() {
+        webView?.evaluateJavaScript("CalibreReader.prevPage()", completionHandler: nil)
+    }
+
+    func goToFraction(_ fraction: Double) {
+        webView?.evaluateJavaScript("CalibreReader.goToFraction(\(fraction))", completionHandler: nil)
+    }
+}
+
 struct EPUBWebView: NSViewRepresentable {
     let fileURL: URL
     let contentBaseURL: URL
     let theme: ReaderTheme
     let fontSize: Int
+    let controller: EPUBPageController
     let onPageInfo: ((Int, Int) -> Void)?  // (currentPage, totalPages)
     let onChapterEnd: ((ChapterEdge) -> Void)?
-
-    @Binding var pageCommand: PageCommand
-
-    enum PageCommand: Equatable {
-        case none
-        case next
-        case previous
-        case goTo(Double) // fraction 0...1
-    }
 
     enum ChapterEdge {
         case next
@@ -48,9 +63,13 @@ struct EPUBWebView: NSViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.setValue(false, forKey: "drawsBackground")
         context.coordinator.webView = webView
+        context.coordinator.controller = controller
         context.coordinator.theme = theme
         context.coordinator.fontSize = fontSize
         context.coordinator.contentBaseURL = contentBaseURL
+
+        // Wire up the controller so arrow buttons can call JS directly
+        controller.webView = webView
 
         loadContent(in: webView)
         return webView
@@ -60,6 +79,10 @@ struct EPUBWebView: NSViewRepresentable {
         context.coordinator.onPageInfo = onPageInfo
         context.coordinator.onChapterEnd = onChapterEnd
         context.coordinator.contentBaseURL = contentBaseURL
+        context.coordinator.controller = controller
+
+        // Keep controller's webView reference current
+        controller.webView = webView
 
         let isNewChapter = context.coordinator.currentURL != fileURL
 
@@ -71,30 +94,6 @@ struct EPUBWebView: NSViewRepresentable {
             context.coordinator.theme = theme
             context.coordinator.fontSize = fontSize
             injectStyles(in: webView)
-        }
-
-        // Handle page commands
-        switch pageCommand {
-        case .next:
-            if !isNewChapter {
-                webView.evaluateJavaScript("CalibreReader.nextPage()", completionHandler: nil)
-            }
-            DispatchQueue.main.async { pageCommand = .none }
-        case .previous:
-            if !isNewChapter {
-                webView.evaluateJavaScript("CalibreReader.prevPage()", completionHandler: nil)
-            }
-            DispatchQueue.main.async { pageCommand = .none }
-        case .goTo(let fraction):
-            if isNewChapter {
-                // Chapter is loading; defer the goTo until didFinish
-                context.coordinator.pendingFraction = fraction
-            } else {
-                webView.evaluateJavaScript("CalibreReader.goToFraction(\(fraction))", completionHandler: nil)
-            }
-            DispatchQueue.main.async { pageCommand = .none }
-        case .none:
-            break
         }
     }
 
@@ -126,11 +125,11 @@ struct EPUBWebView: NSViewRepresentable {
         var webView: WKWebView?
         var currentURL: URL?
         var contentBaseURL: URL?
+        var controller: EPUBPageController?
         var onPageInfo: ((Int, Int) -> Void)?
         var onChapterEnd: ((ChapterEdge) -> Void)?
         var theme: ReaderTheme = .light
         var fontSize: Int = 18
-        var pendingFraction: Double?
 
         init(onPageInfo: ((Int, Int) -> Void)?, onChapterEnd: ((ChapterEdge) -> Void)?) {
             self.onPageInfo = onPageInfo
@@ -141,11 +140,6 @@ struct EPUBWebView: NSViewRepresentable {
             currentURL = webView.url
 
             let css = theme.css(fontSize: fontSize)
-            // The pagination JS engine. Key design:
-            // - html: overflow hidden (clips content)
-            // - body: CSS columns with NO overflow hidden (columns extend horizontally)
-            // - Navigation via transform: translateX() on body
-            // - Page count from body.scrollWidth / pageWidth
             let setupJS = """
             (function() {
                 // Inject theme styles
@@ -294,8 +288,8 @@ struct EPUBWebView: NSViewRepresentable {
             webView.evaluateJavaScript(setupJS, completionHandler: nil)
 
             // Apply pending fraction (e.g., go to last page when navigating backward)
-            if let fraction = pendingFraction {
-                pendingFraction = nil
+            if let fraction = controller?.pendingFraction {
+                controller?.pendingFraction = nil
                 // Set flag BEFORE setup JS runs so the reveal is deferred
                 let flagJS = "window._CalibreWaitForFraction = true;"
                 webView.evaluateJavaScript(flagJS, completionHandler: nil)

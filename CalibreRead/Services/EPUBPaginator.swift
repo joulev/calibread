@@ -10,8 +10,8 @@ import WebKit
 @MainActor
 final class EPUBPaginator: NSObject, WKNavigationDelegate {
     private let webView: WKWebView
-    /// Offscreen window that hosts the WKWebView — required for navigation
-    /// delegate callbacks to fire and for JS layout to work correctly.
+    /// Invisible window that hosts the WKWebView — required for WKWebView to
+    /// actually load content and fire navigation delegate callbacks.
     private let hostWindow: NSWindow
     private let chapters: [EPUBService.Chapter]
     private let contentBaseURL: URL
@@ -35,16 +35,20 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
         let wv = WKWebView(frame: NSRect(origin: .zero, size: viewportSize), configuration: config)
         wv.setValue(false, forKey: "drawsBackground")
 
-        // Host the WKWebView in an offscreen window so that navigation
-        // delegate callbacks fire and CSS column layout is computed correctly.
+        // WKWebView needs to be hosted in a real window for navigation delegate
+        // callbacks to fire and for CSS column layout to be computed. We make the
+        // window fully transparent and behind everything so it's invisible.
         let window = NSWindow(
-            contentRect: NSRect(origin: NSPoint(x: -20000, y: -20000), size: viewportSize),
+            contentRect: NSRect(origin: .zero, size: viewportSize),
             styleMask: .borderless,
             backing: .buffered,
             defer: false
         )
+        window.isReleasedWhenClosed = false
+        window.alphaValue = 0
+        window.level = NSWindow.Level(rawValue: NSWindow.Level.normal.rawValue - 1)
         window.contentView = wv
-        window.orderBack(nil)
+        window.orderFrontRegardless()
 
         self.webView = wv
         self.hostWindow = window
