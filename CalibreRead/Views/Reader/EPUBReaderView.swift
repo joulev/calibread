@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import AppKit
 
 struct EPUBReaderView: View {
     let bookURL: URL
@@ -36,10 +37,42 @@ struct EPUBReaderView: View {
                     }
                 )
             } else if let error = errorMessage {
-                VStack {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.largeTitle)
-                    Text(error)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.largeTitle)
+                                .foregroundStyle(.yellow)
+                            Spacer()
+                        }
+
+                        Text("Failed to parse EPUB file")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+
+                        Divider()
+
+                        Text("Diagnostic Details")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+
+                        Text(error)
+                            .font(.system(.caption, design: .monospaced))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(8)
+                            .background(.quaternary)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                        Button("Copy to Clipboard") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(error, forType: .string)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .frame(maxWidth: .infinity)
+                    }
+                    .padding()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {

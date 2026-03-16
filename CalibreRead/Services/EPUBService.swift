@@ -30,7 +30,8 @@ final class EPUBService {
 
         // Parse EPUB
         guard let doc = EPUBDocument(url: bookURL) else {
-            throw EPUBError.failedToParse
+            let details = EPUBService.gatherDiagnostics(for: bookURL)
+            throw EPUBError.failedToParse(details: details)
         }
         self.document = doc
 
@@ -53,6 +54,85 @@ final class EPUBService {
 
     func chapterFileURL(for chapter: Chapter) -> URL {
         chapter.fileURL
+    }
+
+    // MARK: - Diagnostics
+
+    private static func gatherDiagnostics(for url: URL) -> String {
+        var lines: [String] = []
+        lines.append("Path: \(url.path)")
+
+        let fm = FileManager.default
+
+        // Check file exists and size
+        guard fm.fileExists(atPath: url.path) else {
+            lines.append("Error: File does not exist at path.")
+            return lines.joined(separator: "\n")
+        }
+
+        if let attrs = try? fm.attributesOfItem(atPath: url.path),
+           let size = attrs[.size] as? Int64 {
+            lines.append("File size: \(size) bytes")
+        }
+
+        // Try to read as a ZIP archive (EPUBs are ZIP files)
+        do {
+            let data = try Data(contentsOf: url, options: .mappedIfSafe)
+            // Check ZIP magic bytes (PK\x03\x04)
+            if data.count >= 4 {
+                let magic = Array(data.prefix(4))
+                let isZip = magic == [0x50, 0x4B, 0x03, 0x04]
+                lines.append("ZIP magic bytes: \(magic.map { String(format: "0x%02X", $0) }.joined(separator: " ")) (\(isZip ? "valid" : "INVALID - not a ZIP file"))")
+            } else {
+                lines.append("Error: File too small (\(data.count) bytes)")
+            }
+        } catch {
+            lines.append("Error reading file: \(error.localizedDescription)")
+        }
+
+        // Try to inspect the EPUB structure via Process (unzip -l)
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/zipinfo")
+        process.arguments = ["-1", url.path]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        do {
+            try process.run()
+            process.waitUntilExit()
+            let outputData = pipe.fileHandleForReading.readDataToEndOfFile()
+            let output = String(data: outputData, encoding: .utf8) ?? ""
+
+            if process.terminationStatus == 0 {
+                let files = output.components(separatedBy: "\n").filter { !$0.isEmpty }
+                lines.append("ZIP entries: \(files.count)")
+
+                // Check for key EPUB files
+                let hasContainer = files.contains { $0.hasSuffix("META-INF/container.xml") }
+                let hasMimetype = files.contains { $0 == "mimetype" }
+                let opfFiles = files.filter { $0.hasSuffix(".opf") }
+
+                lines.append("Has mimetype: \(hasMimetype)")
+                lines.append("Has META-INF/container.xml: \(hasContainer)")
+                lines.append("OPF files: \(opfFiles.isEmpty ? "(none)" : opfFiles.joined(separator: ", "))")
+
+                // Show first 20 entries for context
+                let preview = files.prefix(20)
+                lines.append("\nFirst \(preview.count) ZIP entries:")
+                for entry in preview {
+                    lines.append("  \(entry)")
+                }
+                if files.count > 20 {
+                    lines.append("  ... and \(files.count - 20) more")
+                }
+            } else {
+                lines.append("zipinfo failed (exit \(process.terminationStatus)): \(output.prefix(500))")
+            }
+        } catch {
+            lines.append("Could not run zipinfo: \(error.localizedDescription)")
+        }
+
+        return lines.joined(separator: "\n")
     }
 
     // MARK: - Private
@@ -104,12 +184,12 @@ final class EPUBService {
 }
 
 enum EPUBError: LocalizedError {
-    case failedToParse
+    case failedToParse(details: String)
     case chapterNotFound
 
     var errorDescription: String? {
         switch self {
-        case .failedToParse: return "Failed to parse EPUB file."
+        case .failedToParse(let details): return "Failed to parse EPUB file.\n\n\(details)"
         case .chapterNotFound: return "Chapter not found."
         }
     }
