@@ -429,7 +429,7 @@ struct EPUBReaderView: View {
                         .foregroundStyle(theme.swiftUISecondary)
                         .opacity(isContentReady ? 1 : 0)
                 } else {
-                    Text("Paginating\u{2026} \(paginationProgress)/\(service.chapters.count)")
+                    Text("Calculating\u{2026} \(service.chapters.count > 0 ? Int(round(Double(paginationProgress) / Double(service.chapters.count) * 100)) : 0)%")
                         .font(.system(size: 11))
                         .foregroundStyle(theme.swiftUISecondary.opacity(0.5))
                         .opacity(isContentReady ? 1 : 0)
