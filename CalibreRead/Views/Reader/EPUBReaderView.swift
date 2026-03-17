@@ -58,6 +58,18 @@ struct EPUBReaderView: View {
         return (Double(currentChapterIndex) + chapterFraction) / Double(service.chapters.count)
     }
 
+    /// Whether a spine chapter at the given index has a direct TOC entry.
+    private func chapterHasTOCEntry(_ index: Int, service: EPUBService) -> Bool {
+        let href = service.chapters[index].href
+        let base = href.components(separatedBy: "#").first ?? href
+        return service.tableOfContents.contains { toc in
+            let tocBase = toc.href.components(separatedBy: "#").first ?? toc.href
+            return tocBase == base
+                || tocBase.hasSuffix("/\(base)")
+                || base.hasSuffix("/\(tocBase)")
+        }
+    }
+
     /// Title of the current section. If the current spine chapter has a direct
     /// TOC match, use that. Otherwise walk backward through spine chapters to
     /// find the most recent one with a TOC entry. Falls back to "Unnamed Chapter".
@@ -76,6 +88,54 @@ struct EPUBReaderView: View {
             }
         }
         return "Unnamed Chapter"
+    }
+
+    /// The range of spine indices that form the current "named group":
+    /// the nearest predecessor with a TOC entry through all subsequent unnamed chapters.
+    private var currentChapterGroupRange: Range<Int> {
+        guard let service = epubService else { return currentChapterIndex..<(currentChapterIndex + 1) }
+
+        // Walk backward to find the start of the group (nearest named chapter)
+        var groupStart = currentChapterIndex
+        for i in stride(from: currentChapterIndex, through: 0, by: -1) {
+            if chapterHasTOCEntry(i, service: service) {
+                groupStart = i
+                break
+            }
+            if i == 0 { groupStart = 0 }
+        }
+
+        // Walk forward to find the end of the group (next named chapter or end of book)
+        var groupEnd = currentChapterIndex + 1
+        for i in (currentChapterIndex + 1)..<service.chapters.count {
+            if chapterHasTOCEntry(i, service: service) {
+                break
+            }
+            groupEnd = i + 1
+        }
+
+        return groupStart..<groupEnd
+    }
+
+    /// Total pages across the current named chapter group.
+    private var groupTotalPages: Int {
+        guard let counts = sectionPageCounts else {
+            // Fallback: just the current chapter's live count
+            return totalPages
+        }
+        let range = currentChapterGroupRange
+        return counts[range].reduce(0, +)
+    }
+
+    /// Current page within the current named chapter group.
+    private var groupCurrentPage: Int {
+        guard let counts = sectionPageCounts else {
+            // Fallback: just the current chapter's live page
+            return currentPage
+        }
+        let range = currentChapterGroupRange
+        let pagesBeforeCurrent = counts[range.lowerBound..<currentChapterIndex].reduce(0, +)
+        return pagesBeforeCurrent + currentPage
     }
 
     var body: some View {
@@ -347,7 +407,7 @@ struct EPUBReaderView: View {
                     Text("\u{00B7}")
                         .foregroundStyle(theme.swiftUISecondary.opacity(0.5))
 
-                    Text("\(currentPage) / \(totalPages)")
+                    Text("\(groupCurrentPage) / \(groupTotalPages)")
                 }
                 .font(.system(size: 11))
                 .foregroundStyle(theme.swiftUISecondary)
