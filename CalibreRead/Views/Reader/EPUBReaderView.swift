@@ -373,9 +373,10 @@ struct EPUBReaderView: View {
             .padding(.bottom, 4)
 
             // Progress bar with section markers
+            // For vertical (RTL) text, the bar fills from right to left
             GeometryReader { geometry in
                 let barWidth = geometry.size.width
-                ZStack(alignment: .leading) {
+                ZStack(alignment: isVerticalText ? .trailing : .leading) {
                     // Track
                     Rectangle()
                         .fill(theme.swiftUISecondary.opacity(0.12))
@@ -390,10 +391,14 @@ struct EPUBReaderView: View {
                     if let counts = sectionPageCounts, let total = totalBookPages, total > 0 {
                         let dividers = sectionDividerOffsets(counts: counts, total: total)
                         ForEach(0..<dividers.count, id: \.self) { i in
+                            // In trailing-aligned ZStack, offset is relative to the right edge
+                            let offset = isVerticalText
+                                ? -(barWidth * dividers[i])
+                                : barWidth * dividers[i]
                             Rectangle()
                                 .fill(theme.swiftUISecondary.opacity(0.2))
                                 .frame(width: 1)
-                                .offset(x: barWidth * dividers[i])
+                                .offset(x: offset)
                         }
                     }
                 }
