@@ -3,6 +3,11 @@ import Foundation
 /// Tracks page jump history for the EPUB reader, enabling browser-like
 /// back/forward navigation when the user jumps more than 5 pages at once
 /// (e.g. via table of contents).
+///
+/// All jump origins are stored as a flat list of targets. Each target is a
+/// position the user can navigate to. When the user clicks a target, their
+/// current position replaces it in the list. Buttons are displayed based on
+/// whether the target page is before or after the current page.
 @MainActor
 @Observable
 final class PageJumpHistory {
@@ -10,7 +15,7 @@ final class PageJumpHistory {
     struct Position: Equatable {
         let chapterIndex: Int
         let page: Int
-        /// Estimated global page for distance comparison.
+        /// Estimated global page for distance comparison and display.
         /// Uses actual pagination counts when available, otherwise a rough estimate.
         let estimatedGlobalPage: Int
     }
@@ -18,16 +23,15 @@ final class PageJumpHistory {
     /// Minimum page distance to consider a navigation a "jump" worth tracking.
     private let jumpThreshold = 5
 
-    /// How long (seconds) after the last back/forward button use before
+    /// Maximum number of targets to keep.
+    private let maxTargets = 10
+
+    /// How long (seconds) after the last navigation button use before
     /// the buttons auto-hide, assuming only normal navigation occurs.
     private let autoHideDelay: TimeInterval = 300 // 5 minutes
 
-    /// The history stack of positions where jumps originated.
-    /// backStack[last] is the most recent origin we can go back to.
-    private(set) var backStack: [Position] = []
-
-    /// Positions we can go forward to after using "back".
-    private(set) var forwardStack: [Position] = []
+    /// All positions the user can jump to.
+    private(set) var targets: [Position] = []
 
     /// The last known position, used to detect jump distance.
     var lastKnownPosition: Position?
@@ -38,24 +42,16 @@ final class PageJumpHistory {
     /// Timer that hides buttons after inactivity.
     private var hideTimer: Task<Void, Never>?
 
-    /// Whether the current navigation was triggered by a back/forward action,
+    /// Whether the current navigation was triggered by a target button,
     /// so we don't re-record it as a new jump.
     private var isNavigatingFromHistory = false
-
-    var canGoBack: Bool { !backStack.isEmpty && isVisible }
-    var canGoForward: Bool { !forwardStack.isEmpty && isVisible }
-
-    /// The position the back button would navigate to.
-    var backTarget: Position? { backStack.last }
-    /// The position the forward button would navigate to.
-    var forwardTarget: Position? { forwardStack.last }
 
     /// Call this whenever the reading position changes (normal or jump navigation).
     /// Detects jumps and updates history accordingly.
     func positionDidChange(to position: Position) {
         defer { lastKnownPosition = position }
 
-        // If this navigation was triggered by back/forward, don't record it
+        // If this navigation was triggered by a target button, don't record it
         if isNavigatingFromHistory {
             isNavigatingFromHistory = false
             checkAutoRemoval(arrivedAt: position)
@@ -66,10 +62,12 @@ final class PageJumpHistory {
         let distance = abs(position.estimatedGlobalPage - previous.estimatedGlobalPage)
 
         if distance > jumpThreshold {
-            // This is a jump — push the origin onto the back stack
-            backStack.append(previous)
-            // Clear forward stack on new jump (like browser behavior)
-            forwardStack.removeAll()
+            // This is a jump — save the origin as a target
+            targets.append(previous)
+            // Trim oldest targets if we exceed the limit
+            if targets.count > maxTargets {
+                targets.removeFirst(targets.count - maxTargets)
+            }
             isVisible = true
             resetHideTimer()
         } else {
@@ -78,28 +76,20 @@ final class PageJumpHistory {
         }
     }
 
-    /// Navigate back. Returns the position to go to, or nil if can't go back.
-    func goBack(from current: Position) -> Position? {
-        guard let target = backStack.popLast() else { return nil }
-        forwardStack.append(current)
+    /// Navigate to a specific target. Returns the position to go to.
+    /// Removes the target and adds the current position in its place.
+    func navigateToTarget(at index: Int, from current: Position) -> Position? {
+        guard targets.indices.contains(index) else { return nil }
+        let target = targets[index]
+        targets[index] = current
         isNavigatingFromHistory = true
         resetHideTimer()
         return target
     }
 
-    /// Navigate forward. Returns the position to go to, or nil if can't go forward.
-    func goForward(from current: Position) -> Position? {
-        guard let target = forwardStack.popLast() else { return nil }
-        backStack.append(current)
-        isNavigatingFromHistory = true
-        resetHideTimer()
-        return target
-    }
-
-    /// Reset state (e.g. when book changes or pagination invalidates pages).
+    /// Reset state (e.g. when book changes).
     func reset() {
-        backStack.removeAll()
-        forwardStack.removeAll()
+        targets.removeAll()
         lastKnownPosition = nil
         isVisible = false
         hideTimer?.cancel()
@@ -108,26 +98,20 @@ final class PageJumpHistory {
 
     // MARK: - Private
 
-    /// If the user navigates normally to exactly the position a button points to,
-    /// remove that entry from the stack.
+    /// If the user navigates normally to exactly a target position, remove it.
     private func checkAutoRemoval(arrivedAt position: Position) {
-        if let target = backStack.last,
-           target.chapterIndex == position.chapterIndex && target.page == position.page {
-            backStack.removeLast()
+        targets.removeAll { target in
+            target.chapterIndex == position.chapterIndex && target.page == position.page
         }
-        if let target = forwardStack.last,
-           target.chapterIndex == position.chapterIndex && target.page == position.page {
-            forwardStack.removeLast()
-        }
-        // Hide if both stacks are empty
-        if backStack.isEmpty && forwardStack.isEmpty {
+        // Hide if no targets remain
+        if targets.isEmpty {
             isVisible = false
             hideTimer?.cancel()
             hideTimer = nil
         }
     }
 
-    /// Start/restart the auto-hide timer. If the user doesn't use back/forward
+    /// Start/restart the auto-hide timer. If the user doesn't use navigation buttons
     /// for `autoHideDelay` seconds while navigating normally, hide the buttons.
     private func resetHideTimer() {
         hideTimer?.cancel()
@@ -136,8 +120,7 @@ final class PageJumpHistory {
             try? await Task.sleep(for: .seconds(delay))
             guard !Task.isCancelled else { return }
             isVisible = false
-            backStack.removeAll()
-            forwardStack.removeAll()
+            targets.removeAll()
         }
     }
 }

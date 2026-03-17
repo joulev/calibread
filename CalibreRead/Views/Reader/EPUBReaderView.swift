@@ -306,15 +306,13 @@ struct EPUBReaderView: View {
 
                 navigationArrow(isLeft: false)
             }
+            .overlay(alignment: .top) {
+                if jumpHistory.isVisible {
+                    jumpHistoryOverlay()
+                }
+            }
 
             bottomBar(service: service)
-                .overlay(alignment: .top) {
-                    // Jump history back/forward buttons, floating above the bottom bar
-                    if jumpHistory.isVisible {
-                        jumpHistoryButtons()
-                            .offset(y: -28)
-                    }
-                }
         }
     }
 
@@ -419,53 +417,91 @@ struct EPUBReaderView: View {
 
     // MARK: - Jump History Buttons
 
-    private func jumpHistoryButtons() -> some View {
-        HStack(spacing: 4) {
-            if jumpHistory.canGoBack {
-                Button {
-                    guard let target = jumpHistory.goBack(from: currentPosition) else { return }
-                    navigateToPosition(target)
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(theme.swiftUIForeground)
-                        .frame(width: 26, height: 20)
-                        .background(
-                            RoundedRectangle(cornerRadius: 5)
-                                .fill(theme.swiftUISecondary.opacity(0.15))
-                        )
-                }
-                .buttonStyle(.plain)
-            }
+    /// Compute the display page number for a jump target position.
+    private func displayPage(for position: PageJumpHistory.Position) -> Int {
+        if let counts = sectionPageCounts {
+            return counts.prefix(position.chapterIndex).reduce(0, +) + position.page
+        }
+        return position.estimatedGlobalPage
+    }
 
-            if jumpHistory.canGoForward {
-                Button {
-                    guard let target = jumpHistory.goForward(from: currentPosition) else { return }
-                    navigateToPosition(target)
-                } label: {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(theme.swiftUIForeground)
-                        .frame(width: 26, height: 20)
-                        .background(
-                            RoundedRectangle(cornerRadius: 5)
-                                .fill(theme.swiftUISecondary.opacity(0.15))
-                        )
-                }
-                .buttonStyle(.plain)
+    /// Entry for a jump target button with its original index and display info.
+    private struct JumpTargetEntry: Identifiable {
+        let id: Int // original index in targets array
+        let displayPage: Int
+    }
+
+    /// Overlay with jump history buttons: targets before current page on the left,
+    /// targets after current page on the right, each sorted by page number.
+    private func jumpHistoryOverlay() -> some View {
+        let currentEstimated = currentPosition.estimatedGlobalPage
+
+        var beforeCurrent: [JumpTargetEntry] = []
+        var afterCurrent: [JumpTargetEntry] = []
+
+        for (i, target) in jumpHistory.targets.enumerated() {
+            let entry = JumpTargetEntry(id: i, displayPage: displayPage(for: target))
+            if target.estimatedGlobalPage < currentEstimated {
+                beforeCurrent.append(entry)
+            } else {
+                afterCurrent.append(entry)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(
-            Capsule()
-                .fill(theme.swiftUIBackground)
-                .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
-        )
-        .transition(.opacity.combined(with: .scale(scale: 0.8)))
-        .animation(.easeInOut(duration: 0.2), value: jumpHistory.isVisible)
-        .animation(.easeInOut(duration: 0.2), value: jumpHistory.canGoBack)
-        .animation(.easeInOut(duration: 0.2), value: jumpHistory.canGoForward)
+
+        beforeCurrent.sort { $0.displayPage < $1.displayPage }
+        afterCurrent.sort { $0.displayPage < $1.displayPage }
+
+        return HStack(alignment: .top) {
+            // Left side: targets before current page (back arrows)
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(beforeCurrent, id: \.id) { entry in
+                    jumpTargetButton(index: entry.id, displayPage: entry.displayPage, isBefore: true)
+                }
+            }
+
+            Spacer()
+
+            // Right side: targets after current page (forward arrows)
+            VStack(alignment: .trailing, spacing: 4) {
+                ForEach(afterCurrent, id: \.id) { entry in
+                    jumpTargetButton(index: entry.id, displayPage: entry.displayPage, isBefore: false)
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .transition(.opacity)
+        .animation(.easeInOut(duration: 0.2), value: jumpHistory.targets.count)
+    }
+
+    /// A single jump target button styled as a pill with a circular arrow and page number.
+    private func jumpTargetButton(index: Int, displayPage: Int, isBefore: Bool) -> some View {
+        Button {
+            guard let target = jumpHistory.navigateToTarget(at: index, from: currentPosition) else { return }
+            navigateToPosition(target)
+        } label: {
+            HStack(spacing: 4) {
+                if isBefore {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                Text("\(displayPage)")
+                    .font(.system(size: 12, weight: .medium).monospacedDigit())
+                if !isBefore {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+            }
+            .foregroundStyle(theme.swiftUIForeground)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                Capsule()
+                    .fill(theme.swiftUIBackground)
+                    .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Bottom Bar
