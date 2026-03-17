@@ -476,7 +476,7 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
             object-fit: contain !important;
             margin-left: auto !important;
             margin-right: auto !important;
-            break-inside: avoid !important;
+            break-inside: avoid !important;\(self != .dark ? "\n            mix-blend-mode: multiply !important;" : "")
         }
         p {
             orphans: 2 !important;
