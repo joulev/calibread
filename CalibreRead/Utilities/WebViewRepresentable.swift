@@ -204,6 +204,32 @@ struct EPUBWebView: NSViewRepresentable {
                 var wm = bodyWM || htmlWM || 'horizontal-tb';
                 var isVertical = (wm === 'vertical-rl' || wm === 'vertical-lr' || wm === 'tb-rl' || wm === 'tb');
 
+                // For vertical-rl, inject additional CSS to enforce uniform line
+                // spacing: line-height large enough for ruby annotations on every
+                // line, and no paragraph margins so columns pack evenly.
+                if (isVertical) {
+                    var vStyle = document.getElementById('calibreread-vertical');
+                    if (!vStyle) {
+                        vStyle = document.createElement('style');
+                        vStyle.id = 'calibreread-vertical';
+                        document.head.appendChild(vStyle);
+                    }
+                    vStyle.textContent = `
+                        body {
+                            line-height: 2 !important;
+                        }
+                        p, div, span, blockquote, li, dd, dt, figcaption, caption {
+                            margin-block-start: 0 !important;
+                            margin-block-end: 0 !important;
+                            padding-block-start: 0 !important;
+                            padding-block-end: 0 !important;
+                        }
+                        p + p {
+                            text-indent: 1em !important;
+                        }
+                    `;
+                }
+
                 // Notify Swift about writing mode
                 window.webkit.messageHandlers.pageHandler.postMessage({ action: 'writingMode', isVertical: isVertical });
 

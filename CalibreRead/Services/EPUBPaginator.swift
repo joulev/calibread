@@ -243,8 +243,33 @@ private final class PaginationWorker: NSObject, WKNavigationDelegate {
             var wm = bodyWM || htmlWM || 'horizontal-tb';
             var isVertical = (wm === 'vertical-rl' || wm === 'vertical-lr' || wm === 'tb-rl' || wm === 'tb');
 
-            // In vertical-rl, always snap column width to the ruby-inclusive
-            // line pitch so all chapters use a consistent line advance.
+            // For vertical-rl, enforce uniform line spacing and no paragraph
+            // margins, matching the reader's vertical CSS.
+            if (isVertical) {
+                var vStyle = document.getElementById('calibreread-vertical');
+                if (!vStyle) {
+                    vStyle = document.createElement('style');
+                    vStyle.id = 'calibreread-vertical';
+                    document.head.appendChild(vStyle);
+                }
+                vStyle.textContent = `
+                    body {
+                        line-height: 2 !important;
+                    }
+                    p, div, span, blockquote, li, dd, dt, figcaption, caption {
+                        margin-block-start: 0 !important;
+                        margin-block-end: 0 !important;
+                        padding-block-start: 0 !important;
+                        padding-block-end: 0 !important;
+                    }
+                    p + p {
+                        text-indent: 1em !important;
+                    }
+                `;
+            }
+
+            // In vertical-rl, snap column width to the ruby-inclusive line
+            // pitch so all chapters use a consistent line advance.
             if (isVertical) {
                 var probe = document.createElement('div');
                 probe.style.cssText = 'position:absolute;visibility:hidden;display:inline-block;';
