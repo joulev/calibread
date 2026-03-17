@@ -435,17 +435,15 @@ struct EPUBReaderView: View {
                 contentBaseURL: service.contentRootURL,
                 theme: theme,
                 fontSize: fontSize,
-                viewportSize: contentSize
+                viewportSize: contentSize,
+                bookIdentifier: bookId
             )
 
-            var counts: [Int] = []
-            while let result = await paginator.measureNext() {
-                guard !Task.isCancelled else { return }
-                counts.append(result.pageCount)
-                paginationProgress = result.index + 1
+            let counts = await paginator.measureAll { progress in
+                paginationProgress = progress
             }
 
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, let counts else { return }
             sectionPageCounts = counts
         }
     }
