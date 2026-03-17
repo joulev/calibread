@@ -404,10 +404,12 @@ struct EPUBReaderView: View {
                     Text(currentChapterTitle)
                         .lineLimit(1)
 
-                    Text("\u{00B7}")
-                        .foregroundStyle(theme.swiftUISecondary.opacity(0.5))
+                    if sectionPageCounts != nil {
+                        Text("\u{00B7}")
+                            .foregroundStyle(theme.swiftUISecondary.opacity(0.5))
 
-                    Text("\(groupCurrentPage) / \(groupTotalPages)")
+                        Text("\(groupCurrentPage) / \(groupTotalPages)")
+                    }
                 }
                 .font(.system(size: 11))
                 .foregroundStyle(theme.swiftUISecondary)
