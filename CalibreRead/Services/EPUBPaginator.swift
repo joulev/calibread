@@ -231,9 +231,36 @@ private final class PaginationWorker: NSObject, WKNavigationDelegate {
 
             var vw = \(vw);
             var vh = \(vh);
-            var maxContentWidth = 640;
-            var paddingH = Math.max(60, (vw - maxContentWidth) / 2);
-            var paddingV = 40;
+
+            // Detect vertical writing mode
+            var bodyWM = window.getComputedStyle(document.body).writingMode || '';
+            var htmlWM = window.getComputedStyle(document.documentElement).writingMode || '';
+            var wm = bodyWM || htmlWM || 'horizontal-tb';
+            var isVertical = (wm === 'vertical-rl' || wm === 'vertical-lr' || wm === 'tb-rl' || wm === 'tb');
+
+            if (isVertical) {
+                // Same wrapper approach as the reader: force horizontal-tb on body
+                // for correct column breaks, vertical-rl on inner wrapper for content.
+                if (!document.getElementById('calibreread-vwrap')) {
+                    var wrapper = document.createElement('div');
+                    wrapper.id = 'calibreread-vwrap';
+                    wrapper.style.setProperty('writing-mode', 'vertical-rl', 'important');
+                    wrapper.style.height = '100%';
+                    while (document.body.firstChild) {
+                        wrapper.appendChild(document.body.firstChild);
+                    }
+                    document.body.appendChild(wrapper);
+                    document.body.style.setProperty('writing-mode', 'horizontal-tb', 'important');
+                }
+                var maxLineLength = 640;
+                var paddingV = Math.max(40, (vh - maxLineLength) / 2);
+                var paddingH = 60;
+            } else {
+                var maxContentWidth = 640;
+                var paddingH = Math.max(60, (vw - maxContentWidth) / 2);
+                var paddingV = 40;
+            }
+
             var gap = paddingH * 2;
             var colWidth = vw - gap;
 
