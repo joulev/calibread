@@ -2,7 +2,7 @@ name: Build CalibreRead
 
 on:
   push:
-    branches: ["*"]
+    branches: ["**"]
 
 permissions:
   contents: read
