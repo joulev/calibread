@@ -1,4 +1,6 @@
-# CLAUDE.md — Project Context for AI Assistants
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## What This Project Is
 
@@ -9,46 +11,73 @@ The app is for personal use only — not distributed via the App Store. Builds a
 ## Build & Run
 
 - **Requires**: macOS 26 (Tahoe), Xcode 26.x
-- **Open**: `CalibreRead.xcodeproj` in Xcode, build and run
-- **CI**: GitHub Actions builds on every push (`.github/workflows/build.yml`), creates a GitHub Release with a `.zip` on pushes to `main`
-- **No code signing**: The app is built unsigned (ad-hoc). After downloading from GitHub, run `xattr -cr CalibreRead.app` once to remove Gatekeeper quarantine
+- **Open**: `CalibreRead.xcodeproj` in Xcode, build and run (Cmd+R)
+- **CLI build**:
+  ```bash
+  xcodebuild build \
+    -project CalibreRead.xcodeproj \
+    -scheme CalibreRead \
+    -configuration Release \
+    -derivedDataPath build \
+    CODE_SIGN_IDENTITY="-" \
+    CODE_SIGNING_REQUIRED=NO \
+    CODE_SIGNING_ALLOWED=NO \
+    DEVELOPMENT_TEAM=""
+  ```
+  Built app output: `build/Build/Products/Release/CalibreRead.app`
+- **CI**: GitHub Actions (`.github/workflows/build.yml`) builds on every push, creates a GitHub Release with a `.zip` on pushes to `main`
+- **No code signing**: Built unsigned (ad-hoc). After downloading, run `xattr -cr CalibreRead.app` to remove Gatekeeper quarantine
+- **No tests or linting**: The project has no test targets, no SwiftLint, and no test steps in CI. The CI build succeeding is the only automated check.
 
 ## Architecture
 
+This is a native Xcode project (`CalibreRead.xcodeproj`), not a Swift Package. SPM dependencies are configured in the Xcode project file.
+
+### Data Flow
+
 ```
-CalibreRead/
-├── CalibreReadApp.swift              # @main entry point, WindowGroup + Settings scenes
-├── Models/
-│   ├── CalibreBook.swift             # Book model with authors, tags, series, formats
-│   ├── CalibreAuthor.swift           # Author model (id, name, sort, link)
-│   ├── CalibreSeries.swift           # Series model (id, name, sort)
-│   ├── CalibreTag.swift              # Tag model (id, name)
-│   └── ReadingProgress.swift         # SwiftData models: ReadingProgress, BookmarkEntry
-├── Services/
-│   ├── CalibreDatabase.swift         # SQLite.swift reader for Calibre's metadata.db
-│   ├── LibraryManager.swift          # @Observable state manager: books, filtering, sorting
-│   └── EPUBService.swift             # EPUBKit parser: chapters, TOC, file URLs
-├── Views/
-│   ├── ContentView.swift             # Root view: shows WelcomeView or NavigationSplitView
-│   ├── Library/
-│   │   ├── LibraryView.swift         # Grid/list book browser with search, sort, inspector
-│   │   ├── BookGridItem.swift        # Cover thumbnail card for grid view
-│   │   ├── BookListRow.swift         # Row with cover + metadata for list view
-│   │   ├── SidebarView.swift         # Authors/Series/Tags sidebar navigation
-│   │   └── BookDetailView.swift      # Inspector panel: cover, metadata, tags, description
-│   ├── Reader/
-│   │   ├── ReaderView.swift          # Router: dispatches to EPUB or PDF reader by format
-│   │   ├── EPUBReaderView.swift      # EPUB reader with toolbar, chapter nav, progress save
-│   │   ├── PDFReaderView.swift       # PDF reader wrapping PDFKit
-│   │   └── TableOfContentsView.swift # Chapter list for EPUB TOC
-│   └── Settings/
-│       └── SettingsView.swift        # Library path configuration
-├── Utilities/
-│   ├── WebViewRepresentable.swift    # NSViewRepresentable<WKWebView> + ReaderTheme enum
-│   └── PDFViewRepresentable.swift    # NSViewRepresentable<PDFView>
-└── Resources/
-    └── reader.css                    # Default EPUB reading stylesheet
+CalibreDatabase (SQLite.swift, read-only)
+  → LibraryManager (@Observable, single source of truth for all book data)
+    → Views (ContentView → SidebarView + LibraryView + BookDetailView)
 ```
+
+All books are loaded once when the library is opened. Filtering (by author/series/tag/search) and sorting happen as computed properties on `LibraryManager`.
+
+### EPUB Reader Pipeline
+
+```
+EPUBReaderView (state: chapter index, page, theme, font size)
+  → EPUBService (parses EPUB: tries EPUBKit, falls back to manual OPF parser)
+    → EPUBWebView (NSViewRepresentable<WKWebView>)
+      ↔ JavaScript "CalibreReader" global (bidirectional via WKScriptMessageHandler)
+        - CSS column layout for pagination
+        - nextPage()/prevPage() via translateX transforms
+        - Reports {current, total} page changes to Swift
+    → EPUBPageController (direct JS calls, used by keyboard handlers)
+    → EPUBPaginator (measures all chapters in parallel via hidden WKWebView pool)
+      → PaginationCache (JSON files in /tmp, 7-day TTL, keyed by viewport+font+theme)
+```
+
+**Key design decisions:**
+- `EPUBPageController` provides direct WKWebView JS access so arrow keys don't queue through `updateNSView`
+- Reading position is stored as a 0–1 fraction (robust to font/theme reflow changes)
+- `EPUBPaginator` uses 4 hidden WKWebViews in invisible windows, processing chapters in batches — start all loads simultaneously, then collect results
+
+### Window Management
+
+`BookWindowData` is a lightweight `Codable` struct passed to `openWindow(value:)` for reader windows. `CalibreReadApp.swift` defines two `WindowGroup`s: the main library window and per-book reader windows.
+
+### Key Source Locations
+
+| Area | Key Files |
+|------|-----------|
+| Data layer | `Services/CalibreDatabase.swift`, `Services/LibraryManager.swift` |
+| Models | `Models/CalibreBook.swift`, `Models/ReadingProgress.swift`, `Models/BookWindowData.swift` |
+| EPUB reading | `Services/EPUBService.swift`, `Views/Reader/EPUBReaderView.swift`, `Utilities/WebViewRepresentable.swift` |
+| EPUB pagination | `Services/EPUBPaginator.swift` (parallel measurement + disk cache) |
+| PDF reading | `Views/Reader/PDFReaderView.swift`, `Utilities/PDFViewRepresentable.swift` |
+| Library UI | `Views/Library/LibraryView.swift`, `Views/Library/SidebarView.swift` |
+| Reader themes/CSS | `ReaderTheme` enum in `WebViewRepresentable.swift`, `Resources/reader.css` |
 
 ## Key Dependencies (SPM)
 
@@ -79,6 +108,10 @@ Library Root/
 
 The `books.path` column gives the relative path to each book's folder from the library root. Cover images are at `{path}/cover.jpg`. Format files are at `{path}/{data.name}.{format.lowercased()}`.
 
+## App Sandbox
+
+The app sandbox is **disabled** — this is intentional. Sandbox requires a proper Apple signing identity for entitlements to work, and we build unsigned. Without sandbox, the app can freely read the Calibre library folder. The library path is persisted as a plain file path in UserDefaults.
+
 ## Xcode 26 / macOS 26 / Swift 6 Gotchas
 
 These caused real build failures and are worth knowing:
@@ -95,27 +128,7 @@ These caused real build failures and are worth knowing:
 
 6. **`#Predicate` needs explicit type**: Use `#Predicate<ReadingProgress> { ... }` not `#Predicate { ... }`. Capture variables in locals before using in predicates.
 
-## App Sandbox
-
-The app sandbox is **disabled** — this is intentional. Sandbox requires a proper Apple signing identity for entitlements to work, and we build unsigned. Without sandbox, the app can freely read the Calibre library folder. The library path is persisted as a plain file path in UserDefaults.
-
-## What's Implemented (v1)
-
-- [x] Open and read any Calibre library folder
-- [x] Browse books in grid or list view
-- [x] Filter by author, series, or tag via sidebar
-- [x] Search across title, author, series, tags
-- [x] Sort by title, author, date added, date published
-- [x] Book detail inspector with cover, metadata, ratings, tags, HTML description
-- [x] EPUB reader with WKWebView rendering
-- [x] EPUB themes: light, sepia, dark
-- [x] EPUB font size controls (12-32px)
-- [x] EPUB chapter navigation + table of contents
-- [x] PDF reader with native PDFKit
-- [x] Reading progress auto-save/restore (SwiftData)
-- [x] Menu bar: Open Library (Cmd+Shift+O), Reload Library (Cmd+R)
-- [x] Settings window for library path
-- [x] GitHub Actions CI with artifact upload + GitHub Releases
+7. **`withTaskGroup` + `@MainActor` closures**: `group.addTask { @MainActor in ... }` is rejected by Swift 6's region-based isolation checker. Instead of TaskGroup with @MainActor closures, use a batched approach: start all work items (non-blocking), then await results sequentially. For WKWebView pools, split into `startLoad()` (fire-and-forget) + `awaitMeasurement()` (suspend until done).
 
 ## What's Not Yet Implemented
 
