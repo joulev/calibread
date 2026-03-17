@@ -243,14 +243,17 @@ private final class PaginationWorker: NSObject, WKNavigationDelegate {
             var wm = bodyWM || htmlWM || 'horizontal-tb';
             var isVertical = (wm === 'vertical-rl' || wm === 'vertical-lr' || wm === 'tb-rl' || wm === 'tb');
 
-            // In vertical-rl, snap column width to a multiple of the line pitch
-            // so column boundaries never fall mid-line.
+            // In vertical-rl, snap column width to a multiple of the actual
+            // rendered line pitch.  A probe with <ruby> is used so furigana
+            // annotations are accounted for (they widen lines beyond what CSS
+            // line-height reports).
             if (isVertical) {
-                var cs = window.getComputedStyle(document.body);
-                var fs = parseFloat(cs.fontSize) || 18;
-                var lh = parseFloat(cs.lineHeight);
-                if (isNaN(lh)) lh = fs * 1.5;
-                var linePitch = Math.ceil(lh);
+                var probe = document.createElement('div');
+                probe.style.cssText = 'position:absolute;visibility:hidden;display:inline-block;';
+                probe.innerHTML = '<ruby>字<rt>じ</rt></ruby>';
+                document.body.appendChild(probe);
+                var linePitch = probe.offsetWidth;
+                document.body.removeChild(probe);
                 if (linePitch > 0) {
                     var snapped = Math.floor(colWidth / linePitch) * linePitch;
                     var extra = (colWidth - snapped) / 2;

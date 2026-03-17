@@ -222,19 +222,18 @@ struct EPUBWebView: NSViewRepresentable {
                         var gap = paddingH * 2;
                         var colWidth = vw - gap;
 
-                        // In vertical-rl, lines stack horizontally (right-to-left) and each
-                        // line occupies fontSize * lineHeight pixels of width.  If the column
-                        // width is not an exact multiple of this "line pitch", the column
-                        // boundary falls mid-line, visually clipping text.  Snap the column
-                        // width down to the nearest multiple and redistribute the leftover
-                        // space as extra horizontal padding.
+                        // In vertical-rl, lines stack horizontally and each line
+                        // occupies a "line pitch" worth of width.  Furigana (<ruby>/<rt>)
+                        // increases the effective pitch beyond what CSS line-height
+                        // reports, so we measure the actual rendered advance using a
+                        // probe element that includes a ruby annotation.
                         if (this.isVertical) {
-                            var cs = window.getComputedStyle(document.body);
-                            var fs = parseFloat(cs.fontSize) || 18;
-                            var lh = parseFloat(cs.lineHeight);
-                            // lineHeight may be 'normal' → parseFloat returns NaN
-                            if (isNaN(lh)) lh = fs * 1.5;
-                            var linePitch = Math.ceil(lh);
+                            var probe = document.createElement('div');
+                            probe.style.cssText = 'position:absolute;visibility:hidden;display:inline-block;';
+                            probe.innerHTML = '<ruby>字<rt>じ</rt></ruby>';
+                            document.body.appendChild(probe);
+                            var linePitch = probe.offsetWidth;
+                            document.body.removeChild(probe);
                             if (linePitch > 0) {
                                 var snapped = Math.floor(colWidth / linePitch) * linePitch;
                                 var extra = (colWidth - snapped) / 2;
