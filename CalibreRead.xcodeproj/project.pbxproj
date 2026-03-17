@@ -35,6 +35,7 @@
 		A10031 /* EPUBKit in Frameworks */ = {isa = PBXBuildFile; productRef = D10002; };
 		A10032 /* BookWindowData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10027; };
 		A10033 /* EPUBPaginator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10028; };
+		A10034 /* PageJumpHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10029; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -67,6 +68,7 @@
 		B10026 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B10027 /* BookWindowData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookWindowData.swift; sourceTree = "<group>"; };
 		B10028 /* EPUBPaginator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPUBPaginator.swift; sourceTree = "<group>"; };
+		B10029 /* PageJumpHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageJumpHistory.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -115,6 +117,7 @@
 				B10006 /* CalibreTag.swift */,
 				B10007 /* ReadingProgress.swift */,
 				B10027 /* BookWindowData.swift */,
+				B10029 /* PageJumpHistory.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -299,6 +302,7 @@
 				A10022 /* PDFViewRepresentable.swift in Sources */,
 				A10032 /* BookWindowData.swift in Sources */,
 				A10033 /* EPUBPaginator.swift in Sources */,
+				A10034 /* PageJumpHistory.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

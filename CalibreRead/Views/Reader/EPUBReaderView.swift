@@ -23,6 +23,7 @@ struct EPUBReaderView: View {
     @State private var isHoveringRight = false
     @State private var isContentReady = false
     @State private var isVerticalText = false
+    @State private var jumpHistory = PageJumpHistory()
 
     // Pagination state
     @State private var sectionPageCounts: [Int]? = nil
@@ -224,6 +225,16 @@ struct EPUBReaderView: View {
         .onChange(of: contentSize) { _, _ in
             startPagination()
         }
+        .onChange(of: currentPage) { _, _ in
+            if let globalPage = currentGlobalPage {
+                jumpHistory.pageDidChange(to: globalPage)
+            }
+        }
+        .onChange(of: currentChapterIndex) { _, _ in
+            if let globalPage = currentGlobalPage {
+                jumpHistory.pageDidChange(to: globalPage)
+            }
+        }
     }
 
     // MARK: - Reader Content
@@ -291,7 +302,14 @@ struct EPUBReaderView: View {
                 navigationArrow(isLeft: false)
             }
 
-            bottomBar(service: service)
+            ZStack {
+                bottomBar(service: service)
+
+                // Jump history back/forward buttons
+                if jumpHistory.isVisible {
+                    jumpHistoryButtons()
+                }
+            }
         }
     }
 
@@ -394,6 +412,61 @@ struct EPUBReaderView: View {
         }
     }
 
+    // MARK: - Jump History Buttons
+
+    private func jumpHistoryButtons() -> some View {
+        HStack(spacing: 4) {
+            if jumpHistory.canGoBack {
+                Button {
+                    guard let globalPage = currentGlobalPage,
+                          let target = jumpHistory.goBack(currentGlobalPage: globalPage) else { return }
+                    navigateToGlobalPage(target)
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(theme.swiftUIForeground)
+                        .frame(width: 26, height: 20)
+                        .background(
+                            RoundedRectangle(cornerRadius: 5)
+                                .fill(theme.swiftUISecondary.opacity(0.15))
+                        )
+                }
+                .buttonStyle(.plain)
+                .help("Go back to page \(jumpHistory.backTarget ?? 0)")
+            }
+
+            if jumpHistory.canGoForward {
+                Button {
+                    guard let globalPage = currentGlobalPage,
+                          let target = jumpHistory.goForward(currentGlobalPage: globalPage) else { return }
+                    navigateToGlobalPage(target)
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(theme.swiftUIForeground)
+                        .frame(width: 26, height: 20)
+                        .background(
+                            RoundedRectangle(cornerRadius: 5)
+                                .fill(theme.swiftUISecondary.opacity(0.15))
+                        )
+                }
+                .buttonStyle(.plain)
+                .help("Go forward to page \(jumpHistory.forwardTarget ?? 0)")
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(theme.swiftUIBackground)
+                .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
+        )
+        .transition(.opacity.combined(with: .scale(scale: 0.8)))
+        .animation(.easeInOut(duration: 0.2), value: jumpHistory.isVisible)
+        .animation(.easeInOut(duration: 0.2), value: jumpHistory.canGoBack)
+        .animation(.easeInOut(duration: 0.2), value: jumpHistory.canGoForward)
+    }
+
     // MARK: - Bottom Bar
 
     private func bottomBar(service: EPUBService) -> some View {
@@ -491,6 +564,7 @@ struct EPUBReaderView: View {
         paginationTask?.cancel()
         sectionPageCounts = nil
         paginationProgress = 0
+        jumpHistory.reset()
 
         paginationTask = Task {
             // Small debounce for rapid changes (font size adjustment, window resize)
@@ -512,6 +586,9 @@ struct EPUBReaderView: View {
 
             guard !Task.isCancelled, let counts else { return }
             sectionPageCounts = counts
+            // Seed jump history with current position now that we have page counts
+            let previousPages = counts.prefix(currentChapterIndex).reduce(0, +)
+            jumpHistory.lastKnownPage = previousPages + currentPage
         }
     }
 
@@ -541,6 +618,31 @@ struct EPUBReaderView: View {
             currentChapterIndex = spineIndex
             currentPage = 1
             saveProgress()
+        }
+    }
+
+    /// Navigate to a specific global page number by converting it to
+    /// chapter index + page within chapter. Used by jump history back/forward.
+    private func navigateToGlobalPage(_ globalPage: Int) {
+        guard let counts = sectionPageCounts else { return }
+        var remaining = globalPage
+        for (index, count) in counts.enumerated() {
+            if remaining <= count {
+                let targetPage = max(1, remaining)
+                if index != currentChapterIndex {
+                    currentChapterIndex = index
+                    // Set pending fraction so the page loads at the right position
+                    let fraction = count > 1 ? Double(targetPage - 1) / Double(count - 1) : 0
+                    pageController.pendingFraction = fraction
+                } else {
+                    // Same chapter, just go to the page via JS
+                    let fraction = count > 1 ? Double(targetPage - 1) / Double(count - 1) : 0
+                    pageController.goToFraction(fraction)
+                }
+                saveProgress()
+                return
+            }
+            remaining -= count
         }
     }
 
