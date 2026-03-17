@@ -222,6 +222,28 @@ struct EPUBWebView: NSViewRepresentable {
                         var gap = paddingH * 2;
                         var colWidth = vw - gap;
 
+                        // In vertical-rl, lines stack horizontally (right-to-left) and each
+                        // line occupies fontSize * lineHeight pixels of width.  If the column
+                        // width is not an exact multiple of this "line pitch", the column
+                        // boundary falls mid-line, visually clipping text.  Snap the column
+                        // width down to the nearest multiple and redistribute the leftover
+                        // space as extra horizontal padding.
+                        if (this.isVertical) {
+                            var cs = window.getComputedStyle(document.body);
+                            var fs = parseFloat(cs.fontSize) || 18;
+                            var lh = parseFloat(cs.lineHeight);
+                            // lineHeight may be 'normal' → parseFloat returns NaN
+                            if (isNaN(lh)) lh = fs * 1.5;
+                            var linePitch = Math.ceil(lh);
+                            if (linePitch > 0) {
+                                var snapped = Math.floor(colWidth / linePitch) * linePitch;
+                                var extra = (colWidth - snapped) / 2;
+                                paddingH += extra;
+                                gap = paddingH * 2;
+                                colWidth = snapped;
+                            }
+                        }
+
                         // Apply column dimensions dynamically
                         document.body.style.columnWidth = colWidth + 'px';
                         document.body.style.columnGap = gap + 'px';

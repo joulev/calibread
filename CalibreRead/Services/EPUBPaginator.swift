@@ -237,6 +237,29 @@ private final class PaginationWorker: NSObject, WKNavigationDelegate {
             var gap = paddingH * 2;
             var colWidth = vw - gap;
 
+            // Detect vertical writing mode
+            var bodyWM = window.getComputedStyle(document.body).writingMode || '';
+            var htmlWM = window.getComputedStyle(document.documentElement).writingMode || '';
+            var wm = bodyWM || htmlWM || 'horizontal-tb';
+            var isVertical = (wm === 'vertical-rl' || wm === 'vertical-lr' || wm === 'tb-rl' || wm === 'tb');
+
+            // In vertical-rl, snap column width to a multiple of the line pitch
+            // so column boundaries never fall mid-line.
+            if (isVertical) {
+                var cs = window.getComputedStyle(document.body);
+                var fs = parseFloat(cs.fontSize) || 18;
+                var lh = parseFloat(cs.lineHeight);
+                if (isNaN(lh)) lh = fs * 1.5;
+                var linePitch = Math.ceil(lh);
+                if (linePitch > 0) {
+                    var snapped = Math.floor(colWidth / linePitch) * linePitch;
+                    var extra = (colWidth - snapped) / 2;
+                    paddingH += extra;
+                    gap = paddingH * 2;
+                    colWidth = snapped;
+                }
+            }
+
             document.body.style.columnWidth = colWidth + 'px';
             document.body.style.columnGap = gap + 'px';
             document.body.style.height = vh + 'px';
