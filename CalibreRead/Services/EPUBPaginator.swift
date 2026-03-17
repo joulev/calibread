@@ -72,7 +72,10 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
     }
 
     deinit {
-        hostWindow.orderOut(nil)
+        let window = hostWindow
+        MainActor.assumeIsolated {
+            window.orderOut(nil)
+        }
     }
 
     /// Measure the next chapter's page count. Returns `nil` when all chapters have been measured.

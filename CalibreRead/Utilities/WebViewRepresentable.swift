@@ -132,7 +132,6 @@ struct EPUBWebView: NSViewRepresentable {
     private static func readiumCSSInjectionJS() -> String {
         let beforeCSS = loadCSSResource("ReadiumCSS-before")
         let defaultCSS = loadCSSResource("ReadiumCSS-default")
-        let afterCSS = loadCSSResource("ReadiumCSS-after")
 
         return """
         (function() {
@@ -162,7 +161,7 @@ struct EPUBWebView: NSViewRepresentable {
         """
     }
 
-    private static func loadCSSResource(_ name: String) -> String {
+    static func loadCSSResource(_ name: String) -> String {
         guard let url = Bundle.main.url(forResource: name, withExtension: "css", subdirectory: "readium-css"),
               let content = try? String(contentsOf: url, encoding: .utf8) else {
             // Fallback: try without subdirectory (flat bundle)
