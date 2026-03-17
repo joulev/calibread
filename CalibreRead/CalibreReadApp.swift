@@ -43,7 +43,7 @@ struct CalibreReadApp: App {
         }
         .modelContainer(for: [ReadingProgress.self, BookmarkEntry.self])
         .windowToolbarStyle(.unified)
-        .defaultSize(width: 900, height: 700)
+        .defaultSize(width: 750, height: 1050)
 
         Settings {
             SettingsView()
