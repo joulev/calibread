@@ -1,8 +1,9 @@
 import WebKit
 
 /// Measures page counts for all chapters in an EPUB using a pool of concurrent
-/// WKWebViews. This is significantly faster than the sequential approach since
-/// multiple chapters are measured in parallel.
+/// WKWebViews. Chapters are processed in batches — all workers in a batch start
+/// loading simultaneously (WKWebView renders internally on background threads),
+/// then results are collected. This gives ~Nx speedup where N is the pool size.
 ///
 /// Results are cached to disk so re-opening a book with the same settings is instant.
 @MainActor
@@ -51,7 +52,6 @@ final class EPUBPaginator {
     ) async -> [Int]? {
         // Check cache first
         if let cached = PaginationCache.shared.load(key: cacheKey, chapterCount: chapters.count) {
-            // Report instant completion
             for i in 0..<cached.count {
                 onProgress(i + 1)
             }
@@ -71,53 +71,36 @@ final class EPUBPaginator {
         }
 
         var results = [Int](repeating: 1, count: chapters.count)
-        var nextIndex = 0
         var completedCount = 0
 
-        // Use a continuation-based approach to dispatch work across workers
-        await withTaskGroup(of: (Int, Int)?.self) { group in
-            // Seed each worker with initial work
-            for worker in workers {
-                guard nextIndex < chapters.count else { break }
-                let index = nextIndex
-                nextIndex += 1
-                group.addTask { @MainActor in
-                    let count = await worker.measure(chapter: self.chapters[index])
-                    return (index, count)
-                }
+        // Process chapters in batches. Within each batch, all workers start
+        // loading simultaneously — WKWebView performs HTML parsing and layout
+        // on internal background threads, so the loads genuinely overlap.
+        for batchStart in stride(from: 0, to: chapters.count, by: workerCount) {
+            guard !Task.isCancelled else { break }
+
+            let batchEnd = min(batchStart + workerCount, chapters.count)
+            let batchSize = batchEnd - batchStart
+
+            // Phase 1: Kick off all loads in this batch (non-blocking)
+            for i in 0..<batchSize {
+                workers[i].startLoad(chapter: chapters[batchStart + i])
             }
 
-            // As each completes, feed it the next chapter
-            for await result in group {
+            // Phase 2: Await navigation completion + measure each worker
+            for i in 0..<batchSize {
                 guard !Task.isCancelled else { break }
-                guard let (index, count) = result else { continue }
-
-                results[index] = count
+                let count = await workers[i].awaitMeasurement()
+                results[batchStart + i] = count
                 completedCount += 1
                 onProgress(completedCount)
-
-                // Assign next chapter to a worker
-                if nextIndex < chapters.count {
-                    let nextIdx = nextIndex
-                    nextIndex += 1
-                    // Find a free worker — we reuse them round-robin
-                    let workerIdx = completedCount % workerCount
-                    let worker = workers[workerIdx]
-                    group.addTask { @MainActor in
-                        let cnt = await worker.measure(chapter: self.chapters[nextIdx])
-                        return (nextIdx, cnt)
-                    }
-                }
             }
-        }
-
-        guard !Task.isCancelled else {
-            for worker in workers { worker.teardown() }
-            return nil
         }
 
         // Tear down workers
         for worker in workers { worker.teardown() }
+
+        guard !Task.isCancelled else { return nil }
 
         // Cache results
         PaginationCache.shared.save(key: cacheKey, counts: results)
@@ -128,7 +111,9 @@ final class EPUBPaginator {
 
 // MARK: - Pagination Worker
 
-/// A single WKWebView-based worker that can measure one chapter at a time.
+/// A single WKWebView-based worker with a split load/measure API.
+/// `startLoad` kicks off navigation (non-blocking), and `awaitMeasurement`
+/// waits for completion then measures the page count.
 @MainActor
 private final class PaginationWorker: NSObject, WKNavigationDelegate {
     private let webView: WKWebView
@@ -153,6 +138,8 @@ private final class PaginationWorker: NSObject, WKNavigationDelegate {
         let wv = WKWebView(frame: NSRect(origin: .zero, size: viewportSize), configuration: config)
         wv.setValue(false, forKey: "drawsBackground")
 
+        // WKWebView needs a hosting window for navigation callbacks and CSS
+        // column layout to work. Fully transparent and behind everything.
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: viewportSize),
             styleMask: .borderless,
@@ -179,34 +166,38 @@ private final class PaginationWorker: NSObject, WKNavigationDelegate {
         hostWindow.orderOut(nil)
     }
 
-    /// Measure page count for a single chapter.
-    func measure(chapter: EPUBService.Chapter) async -> Int {
+    /// Start loading a chapter. This returns immediately — the actual loading
+    /// happens asynchronously inside WKWebView's internal threads.
+    func startLoad(chapter: EPUBService.Chapter) {
         navigationDidComplete = false
         navigationContinuation = nil
-
         webView.loadFileURL(chapter.fileURL, allowingReadAccessTo: contentBaseURL)
+    }
 
-        if navigationDidComplete {
-            navigationDidComplete = false
-        } else {
+    /// Wait for the current load to finish, then wait for images/fonts and
+    /// measure the page count.
+    func awaitMeasurement() async -> Int {
+        // Wait for navigation to complete
+        if !navigationDidComplete {
             await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
                 self.navigationContinuation = cont
             }
         }
+        navigationDidComplete = false
 
+        // Wait for all images and fonts, then measure
         return await measurePages()
     }
 
-    /// Measure pages after waiting for all images and fonts to load.
-    /// Combines asset waiting + measurement in a single JS evaluation to
-    /// avoid extra round-trips.
+    /// Wait for images/fonts via callAsyncJavaScript (handles JS Promises natively),
+    /// then measure page count using CSS column layout.
     private func measurePages() async -> Int {
         let css = theme.css(fontSize: fontSize)
         let vw = Int(webView.frame.width)
         let vh = Int(webView.frame.height)
 
-        // Step 1: Wait for all images and fonts via callAsyncJavaScript,
-        // which natively awaits JS Promises.
+        // Step 1: Wait for all images and fonts to finish loading.
+        // callAsyncJavaScript natively awaits the returned Promise.
         let waitJS = """
             var images = Array.from(document.querySelectorAll('img'));
             var imagePromises = images.map(function(img) {
@@ -221,14 +212,13 @@ private final class PaginationWorker: NSObject, WKNavigationDelegate {
             return true;
         """
 
-        // callAsyncJavaScript handles `await` in the body natively
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
             webView.callAsyncJavaScript(waitJS, arguments: [:], in: nil, in: .page) { _ in
                 cont.resume()
             }
         }
 
-        // Step 2: Now measure with all assets loaded
+        // Step 2: Apply styles and measure column layout
         let measureJS = """
         (function() {
             var style = document.getElementById('calibreread-style');
@@ -346,7 +336,6 @@ final class PaginationCache: @unchecked Sendable {
     }
 
     private func safeFilename(_ key: String) -> String {
-        // Simple hash to avoid filesystem issues with long/special character keys
         let hash = key.utf8.reduce(into: UInt64(5381)) { result, byte in
             result = result &* 33 &+ UInt64(byte)
         }
