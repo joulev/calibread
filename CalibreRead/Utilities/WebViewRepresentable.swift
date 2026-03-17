@@ -137,7 +137,7 @@ struct EPUBWebView: NSViewRepresentable {
                 document.head.appendChild(style);
             }
             style.textContent = `\(css)`;
-            setTimeout(function() { CalibreReader.recalculate(); }, 100);
+            requestAnimationFrame(function() { CalibreReader.recalculate(); });
         })();
         """
         webView.evaluateJavaScript(js, completionHandler: nil)
@@ -279,20 +279,52 @@ struct EPUBWebView: NSViewRepresentable {
 
                 window.CalibreReader = CalibreReader;
 
-                // Initial calculation after layout settles, then reveal
-                // Body stays hidden until explicitly revealed to avoid flash
-                // when navigating backward (goToFraction needs to run first)
-                setTimeout(function() {
+                // Wait for all images and fonts to finish loading, then
+                // do a single accurate recalculation and reveal content.
+                // No arbitrary timeouts — purely event-driven.
+                function waitForAssets() {
+                    var images = Array.from(document.querySelectorAll('img'));
+                    var imagePromises = images.map(function(img) {
+                        if (img.complete) return Promise.resolve();
+                        return new Promise(function(resolve) {
+                            img.addEventListener('load', resolve, { once: true });
+                            img.addEventListener('error', resolve, { once: true });
+                        });
+                    });
+                    var fontReady = document.fonts ? document.fonts.ready : Promise.resolve();
+                    return Promise.all([fontReady].concat(imagePromises));
+                }
+
+                // Initial calculation: recalculate immediately with rAF for text-only
+                // layout, then recalculate again once all assets finish loading.
+                requestAnimationFrame(function() {
                     CalibreReader.recalculate();
                     if (!window._CalibreWaitForFraction) {
                         document.body.style.opacity = '1';
                         window.webkit.messageHandlers.pageHandler.postMessage({ action: 'contentReady' });
                     }
-                }, 200);
-                // Second recalculation for images that load late
-                setTimeout(function() { CalibreReader.recalculate(); }, 800);
+                });
 
-                // Recalculate on resize — hide content while layout settles
+                waitForAssets().then(function() {
+                    CalibreReader.recalculate();
+                });
+
+                // Watch for dynamically inserted images (e.g. lazy-loaded) and
+                // recalculate when they finish loading.
+                var observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(m) {
+                        m.addedNodes.forEach(function(node) {
+                            if (node.tagName === 'IMG' && !node.complete) {
+                                node.addEventListener('load', function() {
+                                    CalibreReader.recalculate();
+                                }, { once: true });
+                            }
+                        });
+                    });
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
+
+                // Recalculate on resize — debounced since resize fires rapidly
                 var resizeTimer = null;
                 window.addEventListener('resize', function() {
                     document.body.style.opacity = '0';
@@ -303,15 +335,6 @@ struct EPUBWebView: NSViewRepresentable {
                         document.body.style.opacity = '1';
                         window.webkit.messageHandlers.pageHandler.postMessage({ action: 'contentReady' });
                     }, 150);
-                });
-
-                // Recalculate when images finish loading
-                document.querySelectorAll('img').forEach(function(img) {
-                    if (!img.complete) {
-                        img.addEventListener('load', function() {
-                            CalibreReader.recalculate();
-                        });
-                    }
                 });
 
                 // Handle keyboard navigation within the webview
@@ -343,11 +366,11 @@ struct EPUBWebView: NSViewRepresentable {
                 let flagJS = "window._CalibreWaitForFraction = true;"
                 webView.evaluateJavaScript(flagJS, completionHandler: nil)
                 let goToJS = """
-                setTimeout(function() {
+                requestAnimationFrame(function() {
                     CalibreReader.goToFraction(\(fraction));
                     document.body.style.opacity = '1';
                     window.webkit.messageHandlers.pageHandler.postMessage({ action: 'contentReady' });
-                }, 250);
+                });
                 """
                 webView.evaluateJavaScript(goToJS, completionHandler: nil)
             }
