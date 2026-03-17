@@ -216,7 +216,7 @@ struct EPUBWebView: NSViewRepresentable {
                     recalculate: function() {
                         var vw = window.innerWidth;
                         var vh = window.innerHeight;
-                        var maxContentWidth = 720;
+                        var maxContentWidth = 640;
                         var paddingH = Math.max(60, (vw - maxContentWidth) / 2);
                         var paddingV = 40;
                         var gap = paddingH * 2;
@@ -459,7 +459,7 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
             text-rendering: optimizeLegibility !important;
             -webkit-font-smoothing: antialiased !important;
             background-color: \(bg) !important;
-            color: \(fg) !important;
+            color: \(fg);
             margin: 0 !important;
             box-sizing: border-box !important;
             column-fill: auto !important;
@@ -479,8 +479,6 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
             break-inside: avoid !important;
         }
         p {
-            text-indent: 1.5em !important;
-            margin: 0 0 0.3em 0 !important;
             orphans: 2 !important;
             widows: 2 !important;
         }

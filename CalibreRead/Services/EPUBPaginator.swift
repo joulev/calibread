@@ -231,7 +231,7 @@ private final class PaginationWorker: NSObject, WKNavigationDelegate {
 
             var vw = \(vw);
             var vh = \(vh);
-            var maxContentWidth = 720;
+            var maxContentWidth = 640;
             var paddingH = Math.max(60, (vw - maxContentWidth) / 2);
             var paddingV = 40;
             var gap = paddingH * 2;

@@ -20,6 +20,7 @@ body {
     word-spacing: 0.05em;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
+    color: #2d2d2d;
     margin: 0;
     padding: 40px 60px;
     box-sizing: border-box;
@@ -30,17 +31,6 @@ body {
     hyphens: auto;
     /* NOTE: no overflow:hidden here — columns must extend horizontally.
        html clips the view; JS uses transform to paginate. */
-}
-
-p {
-    text-indent: 1.5em;
-    margin: 0 0 0.3em 0;
-    orphans: 2;
-    widows: 2;
-}
-
-p:first-child, h1 + p, h2 + p, h3 + p, h4 + p, hr + p, blockquote + p {
-    text-indent: 0;
 }
 
 img {
