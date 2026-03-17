@@ -506,6 +506,9 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
         // User font size via Readium CSS custom property
         parts.append("--USER__fontSize: \(fontSize)px")
 
+        // Enable advanced settings flag (required by Readium CSS for text-align, hyphens, etc.)
+        parts.append("readium-advanced-on: yes")
+
         // User text settings
         parts.append("--USER__textAlign: justify")
         parts.append("--USER__bodyHyphens: auto")
