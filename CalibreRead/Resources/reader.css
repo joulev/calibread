@@ -13,7 +13,7 @@ html {
 }
 
 body {
-    font-family: 'Iowan Old Style', 'Palatino', 'Georgia', serif;
+    font-family: 'Iowan Old Style', 'Palatino', 'Georgia', 'Hiragino Mincho ProN', 'YuMincho', serif;
     font-size: 18px;
     line-height: 1.7;
     letter-spacing: 0.01em;
