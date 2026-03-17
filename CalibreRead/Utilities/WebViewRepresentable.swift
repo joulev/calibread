@@ -279,8 +279,24 @@ struct EPUBWebView: NSViewRepresentable {
 
                 window.CalibreReader = CalibreReader;
 
-                // Use requestAnimationFrame for faster initial layout — no arbitrary
-                // setTimeout delay. The browser guarantees layout is flushed by rAF.
+                // Wait for all images and fonts to finish loading, then
+                // do a single accurate recalculation and reveal content.
+                // No arbitrary timeouts — purely event-driven.
+                function waitForAssets() {
+                    var images = Array.from(document.querySelectorAll('img'));
+                    var imagePromises = images.map(function(img) {
+                        if (img.complete) return Promise.resolve();
+                        return new Promise(function(resolve) {
+                            img.addEventListener('load', resolve, { once: true });
+                            img.addEventListener('error', resolve, { once: true });
+                        });
+                    });
+                    var fontReady = document.fonts ? document.fonts.ready : Promise.resolve();
+                    return Promise.all([fontReady].concat(imagePromises));
+                }
+
+                // Initial calculation: recalculate immediately with rAF for text-only
+                // layout, then recalculate again once all assets finish loading.
                 requestAnimationFrame(function() {
                     CalibreReader.recalculate();
                     if (!window._CalibreWaitForFraction) {
@@ -288,10 +304,27 @@ struct EPUBWebView: NSViewRepresentable {
                         window.webkit.messageHandlers.pageHandler.postMessage({ action: 'contentReady' });
                     }
                 });
-                // Deferred recalculation for late-loading images (reduced from 800ms)
-                setTimeout(function() { CalibreReader.recalculate(); }, 400);
 
-                // Recalculate on resize — hide content while layout settles
+                waitForAssets().then(function() {
+                    CalibreReader.recalculate();
+                });
+
+                // Watch for dynamically inserted images (e.g. lazy-loaded) and
+                // recalculate when they finish loading.
+                var observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(m) {
+                        m.addedNodes.forEach(function(node) {
+                            if (node.tagName === 'IMG' && !node.complete) {
+                                node.addEventListener('load', function() {
+                                    CalibreReader.recalculate();
+                                }, { once: true });
+                            }
+                        });
+                    });
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
+
+                // Recalculate on resize — debounced since resize fires rapidly
                 var resizeTimer = null;
                 window.addEventListener('resize', function() {
                     document.body.style.opacity = '0';
@@ -302,15 +335,6 @@ struct EPUBWebView: NSViewRepresentable {
                         document.body.style.opacity = '1';
                         window.webkit.messageHandlers.pageHandler.postMessage({ action: 'contentReady' });
                     }, 150);
-                });
-
-                // Recalculate when images finish loading
-                document.querySelectorAll('img').forEach(function(img) {
-                    if (!img.complete) {
-                        img.addEventListener('load', function() {
-                            CalibreReader.recalculate();
-                        });
-                    }
                 });
 
                 // Handle keyboard navigation within the webview

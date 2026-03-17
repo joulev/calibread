@@ -194,19 +194,42 @@ private final class PaginationWorker: NSObject, WKNavigationDelegate {
             }
         }
 
-        // Brief delay for images — reduced from 150ms to 50ms since we're doing
-        // a measurement pass, not rendering for display
-        try? await Task.sleep(for: .milliseconds(50))
-
         return await measurePages()
     }
 
+    /// Measure pages after waiting for all images and fonts to load.
+    /// Combines asset waiting + measurement in a single JS evaluation to
+    /// avoid extra round-trips.
     private func measurePages() async -> Int {
         let css = theme.css(fontSize: fontSize)
         let vw = Int(webView.frame.width)
         let vh = Int(webView.frame.height)
 
-        let js = """
+        // Step 1: Wait for all images and fonts via callAsyncJavaScript,
+        // which natively awaits JS Promises.
+        let waitJS = """
+            var images = Array.from(document.querySelectorAll('img'));
+            var imagePromises = images.map(function(img) {
+                if (img.complete) return Promise.resolve();
+                return new Promise(function(resolve) {
+                    img.addEventListener('load', resolve, { once: true });
+                    img.addEventListener('error', resolve, { once: true });
+                });
+            });
+            var fontReady = document.fonts ? document.fonts.ready : Promise.resolve();
+            await Promise.all([fontReady].concat(imagePromises));
+            return true;
+        """
+
+        // callAsyncJavaScript handles `await` in the body natively
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            webView.callAsyncJavaScript(waitJS, arguments: [:], in: nil, in: .page) { _ in
+                cont.resume()
+            }
+        }
+
+        // Step 2: Now measure with all assets loaded
+        let measureJS = """
         (function() {
             var style = document.getElementById('calibreread-style');
             if (!style) {
@@ -238,7 +261,7 @@ private final class PaginationWorker: NSObject, WKNavigationDelegate {
         """
 
         return await withCheckedContinuation { cont in
-            webView.evaluateJavaScript(js) { result, _ in
+            webView.evaluateJavaScript(measureJS) { result, _ in
                 cont.resume(returning: (result as? Int) ?? 1)
             }
         }
