@@ -413,6 +413,7 @@ struct EPUBReaderView: View {
             .padding(.bottom, 4)
 
             // Progress bar with section markers
+            // For vertical-rl, the bar is mirrored to fill right-to-left
             GeometryReader { geometry in
                 let barWidth = geometry.size.width
                 ZStack(alignment: .leading) {
@@ -433,6 +434,7 @@ struct EPUBReaderView: View {
                         }
                     }
                 }
+                .scaleEffect(x: isVerticalText ? -1 : 1)
             }
             .frame(height: ReaderConstants.progressBarHeight)
         }
