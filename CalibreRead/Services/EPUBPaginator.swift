@@ -239,19 +239,9 @@ private final class PaginationWorker: NSObject, WKNavigationDelegate {
             var isVertical = (wm === 'vertical-rl' || wm === 'vertical-lr' || wm === 'tb-rl' || wm === 'tb');
 
             if (isVertical) {
-                // Same wrapper approach as the reader: force horizontal-tb on body
-                // for correct column breaks, vertical-rl on inner wrapper for content.
-                if (!document.getElementById('calibreread-vwrap')) {
-                    var wrapper = document.createElement('div');
-                    wrapper.id = 'calibreread-vwrap';
-                    wrapper.style.setProperty('writing-mode', 'vertical-rl', 'important');
-                    wrapper.style.height = '100%';
-                    while (document.body.firstChild) {
-                        wrapper.appendChild(document.body.firstChild);
-                    }
-                    document.body.appendChild(wrapper);
-                    document.body.style.setProperty('writing-mode', 'horizontal-tb', 'important');
-                }
+                // For vertical-rl: no CSS columns, no wrapper.
+                // Content overflows horizontally in the block direction.
+                document.body.style.setProperty('writing-mode', 'vertical-rl', 'important');
                 var maxLineLength = 640;
                 var paddingV = Math.max(40, (vh - maxLineLength) / 2);
                 var paddingH = 60;
@@ -261,14 +251,16 @@ private final class PaginationWorker: NSObject, WKNavigationDelegate {
                 var paddingV = 40;
             }
 
-            var gap = paddingH * 2;
-            var colWidth = vw - gap;
-
-            document.body.style.columnWidth = colWidth + 'px';
-            document.body.style.columnGap = gap + 'px';
             document.body.style.height = vh + 'px';
             document.body.style.padding = paddingV + 'px ' + paddingH + 'px';
-            document.body.style.columnFill = 'auto';
+
+            if (!isVertical) {
+                var gap = paddingH * 2;
+                var colWidth = vw - gap;
+                document.body.style.columnWidth = colWidth + 'px';
+                document.body.style.columnGap = gap + 'px';
+                document.body.style.columnFill = 'auto';
+            }
 
             document.body.offsetHeight;
 

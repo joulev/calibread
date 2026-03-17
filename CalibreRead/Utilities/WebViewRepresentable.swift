@@ -218,24 +218,32 @@ struct EPUBWebView: NSViewRepresentable {
                         var vh = window.innerHeight;
 
                         if (this.isVertical) {
-                            // CSS multi-column in vertical-rl creates columns along the
-                            // vertical (inline) axis, so column breaks don't align with
-                            // horizontal page boundaries — causing text clipping.
-                            // Fix: wrap content in a horizontal-tb body so column-width
-                            // controls physical width, with vertical-rl on the inner wrapper.
-                            if (!document.getElementById('calibreread-vwrap')) {
-                                var wrapper = document.createElement('div');
-                                wrapper.id = 'calibreread-vwrap';
-                                wrapper.style.setProperty('writing-mode', 'vertical-rl', 'important');
-                                wrapper.style.height = '100%';
-                                while (document.body.firstChild) {
-                                    wrapper.appendChild(document.body.firstChild);
+                            // For vertical-rl text, CSS multi-column creates columns
+                            // along the vertical (inline) axis — useless for horizontal
+                            // pagination. The old wrapper-div approach also fails because
+                            // a different writing-mode creates a new BFC that can't be
+                            // broken across columns.
+                            //
+                            // Instead: keep body in vertical-rl, no CSS columns.
+                            // Content overflows horizontally (block direction, right-to-left).
+                            // Paginate with positive translateX to reveal leftward content.
+
+                            // Remove legacy wrapper if present from a previous version
+                            var existingWrap = document.getElementById('calibreread-vwrap');
+                            if (existingWrap) {
+                                while (existingWrap.firstChild) {
+                                    document.body.insertBefore(existingWrap.firstChild, existingWrap);
                                 }
-                                document.body.appendChild(wrapper);
-                                document.body.style.setProperty('writing-mode', 'horizontal-tb', 'important');
+                                existingWrap.remove();
                             }
-                            // Limit line length (vertical dimension) analogous to
-                            // maxContentWidth for horizontal text
+
+                            document.body.style.setProperty('writing-mode', 'vertical-rl', 'important');
+
+                            // No CSS columns for vertical text
+                            document.body.style.columnWidth = 'auto';
+                            document.body.style.columnCount = 'auto';
+
+                            // Limit line length (height = inline dimension in vertical-rl)
                             var maxLineLength = 640;
                             var paddingV = Math.max(40, (vh - maxLineLength) / 2);
                             var paddingH = 60;
@@ -245,14 +253,15 @@ struct EPUBWebView: NSViewRepresentable {
                             var paddingV = 40;
                         }
 
-                        var gap = paddingH * 2;
-                        var colWidth = vw - gap;
-
-                        // Apply column dimensions dynamically
-                        document.body.style.columnWidth = colWidth + 'px';
-                        document.body.style.columnGap = gap + 'px';
                         document.body.style.height = vh + 'px';
                         document.body.style.padding = paddingV + 'px ' + paddingH + 'px';
+
+                        if (!this.isVertical) {
+                            var gap = paddingH * 2;
+                            var colWidth = vw - gap;
+                            document.body.style.columnWidth = colWidth + 'px';
+                            document.body.style.columnGap = gap + 'px';
+                        }
 
                         this.pageWidth = vw;
 
@@ -272,9 +281,14 @@ struct EPUBWebView: NSViewRepresentable {
                     },
 
                     applyTransform: function() {
-                        // With the vertical-rl wrapper, CSS columns flow left-to-right
-                        // (same as horizontal text), so negative translateX works for both.
-                        document.body.style.transform = 'translateX(-' + (this.currentPage * this.pageWidth) + 'px)';
+                        if (this.isVertical) {
+                            // Vertical-rl: content starts at right edge, flows left.
+                            // Positive translateX shifts content right, revealing
+                            // pages further to the left (deeper into the text).
+                            document.body.style.transform = 'translateX(' + (this.currentPage * this.pageWidth) + 'px)';
+                        } else {
+                            document.body.style.transform = 'translateX(-' + (this.currentPage * this.pageWidth) + 'px)';
+                        }
                     },
 
                     reportPage: function() {
