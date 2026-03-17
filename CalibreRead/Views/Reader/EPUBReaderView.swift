@@ -22,6 +22,7 @@ struct EPUBReaderView: View {
     @State private var isHoveringLeft = false
     @State private var isHoveringRight = false
     @State private var isContentReady = false
+    @State private var frozenProgress: Double?
     @State private var isVerticalText = false
 
     // Pagination state
@@ -48,7 +49,9 @@ struct EPUBReaderView: View {
 
     /// Overall reading progress as a fraction 0...1.
     /// Uses actual page counts when available, falls back to chapter-weighted estimate.
+    /// Returns a frozen value during chapter transitions to avoid flashing.
     private var overallProgress: Double {
+        if let frozen = frozenProgress { return frozen }
         if let global = currentGlobalPage, let total = totalBookPages, total > 0 {
             return Double(global) / Double(total)
         }
@@ -245,6 +248,7 @@ struct EPUBReaderView: View {
                         onPageInfo: { page, total in
                             currentPage = page
                             totalPages = total
+                            frozenProgress = nil
                             // Keep paginated counts in sync with the live WKWebView
                             if var counts = sectionPageCounts, currentChapterIndex < counts.count {
                                 counts[currentChapterIndex] = total
@@ -252,6 +256,7 @@ struct EPUBReaderView: View {
                             }
                         },
                         onChapterEnd: { edge in
+                            frozenProgress = overallProgress
                             isContentReady = false
                             switch edge {
                             case .next:
@@ -447,7 +452,6 @@ struct EPUBReaderView: View {
                     Rectangle()
                         .fill(theme.swiftUISecondary.opacity(0.35))
                         .frame(width: barWidth * overallProgress)
-                        .animation(.easeInOut(duration: 0.25), value: overallProgress)
 
                     // Section dividers (only when pagination is complete)
                     if let counts = sectionPageCounts, let total = totalBookPages, total > 0 {
@@ -543,6 +547,7 @@ struct EPUBReaderView: View {
                 || spineBase.hasSuffix("/\(tocBase)")
                 || tocBase.hasSuffix("/\(spineBase)")
         }) {
+            frozenProgress = overallProgress
             currentChapterIndex = spineIndex
             currentPage = 1
             saveProgress()
