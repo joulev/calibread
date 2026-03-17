@@ -23,7 +23,6 @@ struct EPUBReaderView: View {
     @State private var isHoveringRight = false
     @State private var isContentReady = false
     @State private var frozenProgress: Double?
-    @State private var isVerticalText = false
 
     // Pagination state
     @State private var sectionPageCounts: [Int]? = nil
@@ -191,22 +190,12 @@ struct EPUBReaderView: View {
         }
         .onKeyPress(.leftArrow) {
             guard isContentReady else { return .handled }
-            // In vertical text, left arrow = forward (next page)
-            if isVerticalText {
-                pageController.nextPage()
-            } else {
-                pageController.previousPage()
-            }
+            pageController.previousPage()
             return .handled
         }
         .onKeyPress(.rightArrow) {
             guard isContentReady else { return .handled }
-            // In vertical text, right arrow = backward (previous page)
-            if isVerticalText {
-                pageController.previousPage()
-            } else {
-                pageController.nextPage()
-            }
+            pageController.nextPage()
             return .handled
         }
         .onKeyPress(.space) {
@@ -276,9 +265,6 @@ struct EPUBReaderView: View {
                         },
                         onContentReadyChanged: { ready in
                             isContentReady = ready
-                        },
-                        onWritingModeDetected: { vertical in
-                            isVerticalText = vertical
                         }
                     )
                     .onAppear {
@@ -367,13 +353,9 @@ struct EPUBReaderView: View {
     private func navigationArrow(isLeft: Bool) -> some View {
         let isHovering = isLeft ? isHoveringLeft : isHoveringRight
 
-        // In vertical text (tategaki), reading goes right-to-left,
-        // so the left button = forward (next) and right button = backward (prev)
-        let goForward = isVerticalText ? isLeft : !isLeft
-
         return Button {
             guard isContentReady else { return }
-            if goForward {
+            if !isLeft {
                 pageController.nextPage()
             } else {
                 pageController.previousPage()
@@ -440,10 +422,9 @@ struct EPUBReaderView: View {
             .padding(.bottom, 4)
 
             // Progress bar with section markers
-            // For vertical (RTL) text, the bar fills from right to left
             GeometryReader { geometry in
                 let barWidth = geometry.size.width
-                ZStack(alignment: isVerticalText ? .trailing : .leading) {
+                ZStack(alignment: .leading) {
                     // Track
                     Rectangle()
                         .fill(theme.swiftUISecondary.opacity(0.12))
@@ -457,14 +438,10 @@ struct EPUBReaderView: View {
                     if let counts = sectionPageCounts, let total = totalBookPages, total > 0 {
                         let dividers = namedSectionDividerOffsets(counts: counts, total: total, service: service)
                         ForEach(0..<dividers.count, id: \.self) { i in
-                            // In trailing-aligned ZStack, offset is relative to the right edge
-                            let offset = isVerticalText
-                                ? -(barWidth * dividers[i])
-                                : barWidth * dividers[i]
                             Rectangle()
                                 .fill(theme.swiftUISecondary.opacity(0.4))
                                 .frame(width: 1.5)
-                                .offset(x: offset)
+                                .offset(x: barWidth * dividers[i])
                         }
                     }
                 }
