@@ -32,17 +32,6 @@ body {
        html clips the view; JS uses transform to paginate. */
 }
 
-p {
-    text-indent: 1.5em;
-    margin: 0 0 0.3em 0;
-    orphans: 2;
-    widows: 2;
-}
-
-p:first-child, h1 + p, h2 + p, h3 + p, h4 + p, hr + p, blockquote + p {
-    text-indent: 0;
-}
-
 img {
     display: block;
     max-width: 100%;
