@@ -22,6 +22,7 @@ struct EPUBReaderView: View {
     @State private var isHoveringLeft = false
     @State private var isHoveringRight = false
     @State private var isContentReady = false
+    @State private var isVerticalText = false
 
     // Pagination state
     @State private var sectionPageCounts: [Int]? = nil
@@ -127,12 +128,22 @@ struct EPUBReaderView: View {
         }
         .onKeyPress(.leftArrow) {
             guard isContentReady else { return .handled }
-            pageController.previousPage()
+            // In vertical text, left arrow = forward (next page)
+            if isVerticalText {
+                pageController.nextPage()
+            } else {
+                pageController.previousPage()
+            }
             return .handled
         }
         .onKeyPress(.rightArrow) {
             guard isContentReady else { return .handled }
-            pageController.nextPage()
+            // In vertical text, right arrow = backward (previous page)
+            if isVerticalText {
+                pageController.previousPage()
+            } else {
+                pageController.nextPage()
+            }
             return .handled
         }
         .onKeyPress(.space) {
@@ -200,6 +211,9 @@ struct EPUBReaderView: View {
                         },
                         onContentReadyChanged: { ready in
                             isContentReady = ready
+                        },
+                        onWritingModeDetected: { vertical in
+                            isVerticalText = vertical
                         }
                     )
                     .onAppear {
@@ -288,12 +302,16 @@ struct EPUBReaderView: View {
     private func navigationArrow(isLeft: Bool) -> some View {
         let isHovering = isLeft ? isHoveringLeft : isHoveringRight
 
+        // In vertical text (tategaki), reading goes right-to-left,
+        // so the left button = forward (next) and right button = backward (prev)
+        let goForward = isVerticalText ? isLeft : !isLeft
+
         return Button {
             guard isContentReady else { return }
-            if isLeft {
-                pageController.previousPage()
-            } else {
+            if goForward {
                 pageController.nextPage()
+            } else {
+                pageController.previousPage()
             }
         } label: {
             Text(isLeft ? "\u{2039}" : "\u{203A}")

@@ -33,6 +33,7 @@ struct EPUBWebView: NSViewRepresentable {
     let onPageInfo: ((Int, Int) -> Void)?  // (currentPage, totalPages)
     let onChapterEnd: ((ChapterEdge) -> Void)?
     let onContentReadyChanged: ((Bool) -> Void)?
+    let onWritingModeDetected: ((Bool) -> Void)?  // true = vertical
 
     enum ChapterEdge {
         case next
@@ -40,7 +41,7 @@ struct EPUBWebView: NSViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onPageInfo: onPageInfo, onChapterEnd: onChapterEnd, onContentReadyChanged: onContentReadyChanged)
+        Coordinator(onPageInfo: onPageInfo, onChapterEnd: onChapterEnd, onContentReadyChanged: onContentReadyChanged, onWritingModeDetected: onWritingModeDetected)
     }
 
     func makeNSView(context: Context) -> WKWebView {
@@ -101,6 +102,7 @@ struct EPUBWebView: NSViewRepresentable {
         context.coordinator.onPageInfo = onPageInfo
         context.coordinator.onChapterEnd = onChapterEnd
         context.coordinator.onContentReadyChanged = onContentReadyChanged
+        context.coordinator.onWritingModeDetected = onWritingModeDetected
         context.coordinator.contentBaseURL = contentBaseURL
         context.coordinator.controller = controller
 
@@ -152,13 +154,15 @@ struct EPUBWebView: NSViewRepresentable {
         var onPageInfo: ((Int, Int) -> Void)?
         var onChapterEnd: ((ChapterEdge) -> Void)?
         var onContentReadyChanged: ((Bool) -> Void)?
+        var onWritingModeDetected: ((Bool) -> Void)?
         var theme: ReaderTheme = .light
         var fontSize: Int = 18
 
-        init(onPageInfo: ((Int, Int) -> Void)?, onChapterEnd: ((ChapterEdge) -> Void)?, onContentReadyChanged: ((Bool) -> Void)?) {
+        init(onPageInfo: ((Int, Int) -> Void)?, onChapterEnd: ((ChapterEdge) -> Void)?, onContentReadyChanged: ((Bool) -> Void)?, onWritingModeDetected: ((Bool) -> Void)?) {
             self.onPageInfo = onPageInfo
             self.onChapterEnd = onChapterEnd
             self.onContentReadyChanged = onContentReadyChanged
+            self.onWritingModeDetected = onWritingModeDetected
         }
 
         /// Disable native scroll indicators on all NSScrollView instances inside
@@ -194,10 +198,20 @@ struct EPUBWebView: NSViewRepresentable {
                 }
                 style.textContent = `\(css)`;
 
+                // Detect vertical writing mode from the EPUB's own styles
+                var bodyWM = window.getComputedStyle(document.body).writingMode || '';
+                var htmlWM = window.getComputedStyle(document.documentElement).writingMode || '';
+                var wm = bodyWM || htmlWM || 'horizontal-tb';
+                var isVertical = (wm === 'vertical-rl' || wm === 'vertical-lr' || wm === 'tb-rl' || wm === 'tb');
+
+                // Notify Swift about writing mode
+                window.webkit.messageHandlers.pageHandler.postMessage({ action: 'writingMode', isVertical: isVertical });
+
                 var CalibreReader = {
                     currentPage: 0,
                     totalPages: 1,
                     pageWidth: 0,
+                    isVertical: isVertical,
 
                     recalculate: function() {
                         var vw = window.innerWidth;
@@ -232,7 +246,13 @@ struct EPUBWebView: NSViewRepresentable {
                     },
 
                     applyTransform: function() {
-                        document.body.style.transform = 'translateX(-' + (this.currentPage * this.pageWidth) + 'px)';
+                        if (this.isVertical) {
+                            // In vertical-rl, content starts at right edge and flows left.
+                            // Shift content rightward to reveal subsequent pages.
+                            document.body.style.transform = 'translateX(' + (this.currentPage * this.pageWidth) + 'px)';
+                        } else {
+                            document.body.style.transform = 'translateX(-' + (this.currentPage * this.pageWidth) + 'px)';
+                        }
                     },
 
                     reportPage: function() {
@@ -315,12 +335,15 @@ struct EPUBWebView: NSViewRepresentable {
                 });
 
                 // Handle keyboard navigation within the webview
+                // In vertical-rl, left arrow = forward (next page), right arrow = backward
                 document.addEventListener('keydown', function(e) {
                     if (document.body.style.opacity === '0') return;
-                    if (e.key === 'ArrowRight' || e.key === ' ') {
+                    var nextKey = CalibreReader.isVertical ? 'ArrowLeft' : 'ArrowRight';
+                    var prevKey = CalibreReader.isVertical ? 'ArrowRight' : 'ArrowLeft';
+                    if (e.key === nextKey || e.key === ' ') {
                         e.preventDefault();
                         CalibreReader.nextPage();
-                    } else if (e.key === 'ArrowLeft') {
+                    } else if (e.key === prevKey) {
                         e.preventDefault();
                         CalibreReader.prevPage();
                     }
@@ -367,6 +390,9 @@ struct EPUBWebView: NSViewRepresentable {
                         onContentReadyChanged?(false)
                     } else if action == "contentReady" {
                         onContentReadyChanged?(true)
+                    } else if action == "writingMode" {
+                        let isVertical = dict["isVertical"] as? Bool ?? false
+                        onWritingModeDetected?(isVertical)
                     }
                 }
             }
@@ -402,7 +428,7 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
             display: none !important;
         }
         body {
-            font-family: 'Iowan Old Style', 'Palatino', 'Georgia', serif !important;
+            font-family: 'Iowan Old Style', 'Palatino', 'Georgia', 'Hiragino Mincho ProN', 'YuMincho', serif !important;
             font-size: \(fontSize)px !important;
             line-height: 1.5 !important;
             letter-spacing: 0.01em !important;
