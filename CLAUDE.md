@@ -77,7 +77,9 @@ EPUBReaderView (state: chapter index, page, theme, font size)
 | EPUB pagination | `Services/EPUBPaginator.swift` (parallel measurement + disk cache) |
 | PDF reading | `Views/Reader/PDFReaderView.swift`, `Utilities/PDFViewRepresentable.swift` |
 | Library UI | `Views/Library/LibraryView.swift`, `Views/Library/SidebarView.swift` |
-| Reader themes/CSS | `ReaderTheme` enum in `WebViewRepresentable.swift`, `Resources/reader.css` |
+| Reader themes/CSS | `Utilities/ReaderTheme.swift`, `Resources/reader.css` |
+| Reader JS engine | `Resources/reader.js` (CalibreReader pagination object, injected into WKWebView) |
+| Shared utilities | `Utilities/HrefMatcher.swift` (EPUB href comparison for TOC/spine matching) |
 
 ## Key Dependencies (SPM)
 

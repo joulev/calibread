@@ -44,11 +44,7 @@ struct TableOfContentsView: View {
     }
 
     private func isCurrentChapter(_ chapter: EPUBService.Chapter) -> Bool {
-        let tocBase = chapter.href.components(separatedBy: "#").first ?? chapter.href
-        let currentBase = currentChapterHref.components(separatedBy: "#").first ?? currentChapterHref
-        return tocBase == currentBase
-            || tocBase.hasSuffix("/\(currentBase)")
-            || currentBase.hasSuffix("/\(tocBase)")
+        HrefMatcher.matches(chapter.href, currentChapterHref)
     }
 }
 

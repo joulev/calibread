@@ -2,6 +2,17 @@ import SwiftUI
 import SwiftData
 import AppKit
 
+// MARK: - Constants
+
+private enum ReaderConstants {
+    static let minFontSize = 12
+    static let maxFontSize = 32
+    static let fontSizeStep = 2
+    static let defaultFontSize = 18
+    static let progressBarHeight: CGFloat = 3
+    static let paginationDebounceMs = 300
+}
+
 struct EPUBReaderView: View {
     let bookURL: URL
     let libraryRoot: URL
@@ -14,7 +25,7 @@ struct EPUBReaderView: View {
     @State private var showTOC = false
     @State private var showFontPanel = false
     @State private var theme: ReaderTheme = .sepia
-    @State private var fontSize = 18
+    @State private var fontSize = ReaderConstants.defaultFontSize
     @State private var errorMessage: String?
     @State private var currentPage = 1
     @State private var totalPages = 1
@@ -60,32 +71,12 @@ struct EPUBReaderView: View {
         return (Double(currentChapterIndex) + chapterFraction) / Double(service.chapters.count)
     }
 
-    /// Whether a spine chapter at the given index has a direct TOC entry.
-    private func chapterHasTOCEntry(_ index: Int, service: EPUBService) -> Bool {
-        let href = service.chapters[index].href
-        let base = href.components(separatedBy: "#").first ?? href
-        return service.tableOfContents.contains { toc in
-            let tocBase = toc.href.components(separatedBy: "#").first ?? toc.href
-            return tocBase == base
-                || tocBase.hasSuffix("/\(base)")
-                || base.hasSuffix("/\(tocBase)")
-        }
-    }
-
-    /// Title of the current section. If the current spine chapter has a direct
-    /// TOC match, use that. Otherwise walk backward through spine chapters to
+    /// Title of the current section. Walks backward through spine chapters to
     /// find the most recent one with a TOC entry. Falls back to "Unnamed Chapter".
     private var currentChapterTitle: String {
         guard let service = epubService else { return "Unnamed Chapter" }
         for i in stride(from: currentChapterIndex, through: 0, by: -1) {
-            let href = service.chapters[i].href
-            let base = href.components(separatedBy: "#").first ?? href
-            if let tocEntry = service.tableOfContents.first(where: { toc in
-                let tocBase = toc.href.components(separatedBy: "#").first ?? toc.href
-                return tocBase == base
-                    || tocBase.hasSuffix("/\(base)")
-                    || base.hasSuffix("/\(tocBase)")
-            }) {
+            if let tocEntry = HrefMatcher.findTOCEntry(for: service.chapters[i].href, in: service.tableOfContents) {
                 return tocEntry.title
             }
         }
@@ -100,7 +91,7 @@ struct EPUBReaderView: View {
         // Walk backward to find the start of the group (nearest named chapter)
         var groupStart = currentChapterIndex
         for i in stride(from: currentChapterIndex, through: 0, by: -1) {
-            if chapterHasTOCEntry(i, service: service) {
+            if HrefMatcher.findTOCEntry(for: service.chapters[i].href, in: service.tableOfContents) != nil {
                 groupStart = i
                 break
             }
@@ -110,7 +101,7 @@ struct EPUBReaderView: View {
         // Walk forward to find the end of the group (next named chapter or end of book)
         var groupEnd = currentChapterIndex + 1
         for i in (currentChapterIndex + 1)..<service.chapters.count {
-            if chapterHasTOCEntry(i, service: service) {
+            if HrefMatcher.findTOCEntry(for: service.chapters[i].href, in: service.tableOfContents) != nil {
                 break
             }
             groupEnd = i + 1
@@ -121,20 +112,13 @@ struct EPUBReaderView: View {
 
     /// Total pages across the current named chapter group.
     private var groupTotalPages: Int {
-        guard let counts = sectionPageCounts else {
-            // Fallback: just the current chapter's live count
-            return totalPages
-        }
-        let range = currentChapterGroupRange
-        return counts[range].reduce(0, +)
+        guard let counts = sectionPageCounts else { return totalPages }
+        return counts[currentChapterGroupRange].reduce(0, +)
     }
 
     /// Current page within the current named chapter group.
     private var groupCurrentPage: Int {
-        guard let counts = sectionPageCounts else {
-            // Fallback: just the current chapter's live page
-            return currentPage
-        }
+        guard let counts = sectionPageCounts else { return currentPage }
         let range = currentChapterGroupRange
         let pagesBeforeCurrent = counts[range.lowerBound..<currentChapterIndex].reduce(0, +)
         return pagesBeforeCurrent + currentPage
@@ -290,10 +274,9 @@ struct EPUBReaderView: View {
 
     private func fontControlsPanel() -> some View {
         VStack(spacing: 16) {
-            // Font size controls
             HStack(spacing: 16) {
                 Button {
-                    fontSize = max(12, fontSize - 2)
+                    fontSize = max(ReaderConstants.minFontSize, fontSize - ReaderConstants.fontSizeStep)
                 } label: {
                     Text("A")
                         .font(.system(size: 14))
@@ -311,7 +294,7 @@ struct EPUBReaderView: View {
                     .frame(width: 40)
 
                 Button {
-                    fontSize = min(32, fontSize + 2)
+                    fontSize = min(ReaderConstants.maxFontSize, fontSize + ReaderConstants.fontSizeStep)
                 } label: {
                     Text("A")
                         .font(.system(size: 18, weight: .medium))
@@ -324,7 +307,6 @@ struct EPUBReaderView: View {
                 .buttonStyle(.plain)
             }
 
-            // Theme picker
             HStack(spacing: 10) {
                 ForEach(ReaderTheme.allCases, id: \.self) { t in
                     Button {
@@ -425,16 +407,13 @@ struct EPUBReaderView: View {
             GeometryReader { geometry in
                 let barWidth = geometry.size.width
                 ZStack(alignment: .leading) {
-                    // Track
                     Rectangle()
                         .fill(theme.swiftUISecondary.opacity(0.12))
 
-                    // Fill
                     Rectangle()
                         .fill(theme.swiftUISecondary.opacity(0.35))
                         .frame(width: barWidth * overallProgress)
 
-                    // Section dividers (only when pagination is complete)
                     if let counts = sectionPageCounts, let total = totalBookPages, total > 0 {
                         let dividers = namedSectionDividerOffsets(counts: counts, total: total, service: service)
                         ForEach(0..<dividers.count, id: \.self) { i in
@@ -446,7 +425,7 @@ struct EPUBReaderView: View {
                     }
                 }
             }
-            .frame(height: 3)
+            .frame(height: ReaderConstants.progressBarHeight)
         }
     }
 
@@ -459,9 +438,9 @@ struct EPUBReaderView: View {
         var cumulative = 0
         for i in 0..<counts.count {
             cumulative += counts[i]
-            // Place a divider before the next named chapter (skip divider at the very end)
             let nextIndex = i + 1
-            if nextIndex < counts.count, chapterHasTOCEntry(nextIndex, service: service) {
+            if nextIndex < counts.count,
+               HrefMatcher.findTOCEntry(for: service.chapters[nextIndex].href, in: service.tableOfContents) != nil {
                 offsets.append(Double(cumulative) / Double(total))
             }
         }
@@ -479,8 +458,7 @@ struct EPUBReaderView: View {
         paginationProgress = 0
 
         paginationTask = Task {
-            // Small debounce for rapid changes (font size adjustment, window resize)
-            try? await Task.sleep(for: .milliseconds(300))
+            try? await Task.sleep(for: .milliseconds(ReaderConstants.paginationDebounceMs))
             guard !Task.isCancelled else { return }
 
             let paginator = EPUBPaginator(
@@ -508,7 +486,6 @@ struct EPUBReaderView: View {
             let service = try EPUBService(bookURL: bookURL, libraryRoot: libraryRoot)
             self.epubService = service
             restoreProgress()
-            // Pagination starts once contentSize is reported via onChange
         } catch {
             self.errorMessage = error.localizedDescription
         }
@@ -517,13 +494,7 @@ struct EPUBReaderView: View {
     /// Navigate to a TOC entry by matching its href against the spine chapters.
     private func navigateToTOCEntry(_ tocChapter: EPUBService.Chapter) {
         guard let service = epubService else { return }
-        let tocBase = tocChapter.href.components(separatedBy: "#").first ?? tocChapter.href
-        if let spineIndex = service.chapters.firstIndex(where: { spine in
-            let spineBase = spine.href.components(separatedBy: "#").first ?? spine.href
-            return spineBase == tocBase
-                || spineBase.hasSuffix("/\(tocBase)")
-                || tocBase.hasSuffix("/\(spineBase)")
-        }) {
+        if let spineIndex = HrefMatcher.findSpineIndex(for: tocChapter.href, in: service.chapters) {
             frozenProgress = overallProgress
             currentChapterIndex = spineIndex
             currentPage = 1
