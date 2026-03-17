@@ -1,7 +1,7 @@
 import WebKit
 
 /// Measures page counts for all chapters in an EPUB by loading each into a hidden
-/// WKWebView with the same column-based pagination layout as the reader.
+/// WKWebView with the same Readium CSS column-based pagination layout as the reader.
 ///
 /// After pagination completes, the caller knows:
 /// - Total pages in the entire book
@@ -31,14 +31,23 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
     ) {
         let config = WKWebViewConfiguration()
         config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
-        config.userContentController = WKUserContentController()
+
+        let userController = WKUserContentController()
+
+        // Inject Readium CSS at document start (same as reader)
+        let readiumCSSScript = WKUserScript(
+            source: EPUBPaginator.readiumCSSInjectionJS(),
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        userController.addUserScript(readiumCSSScript)
+        config.userContentController = userController
 
         let wv = WKWebView(frame: NSRect(origin: .zero, size: viewportSize), configuration: config)
         wv.setValue(false, forKey: "drawsBackground")
 
         // WKWebView needs to be hosted in a real window for navigation delegate
-        // callbacks to fire and for CSS column layout to be computed. We make the
-        // window fully transparent and behind everything so it's invisible.
+        // callbacks to fire and for CSS column layout to be computed.
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: viewportSize),
             styleMask: .borderless,
@@ -94,41 +103,37 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
         return (index: index, pageCount: pageCount)
     }
 
-    // MARK: - Page Measurement
+    // MARK: - Page Measurement (Readium CSS approach)
 
     private func measurePages() async -> Int {
-        let css = theme.css(fontSize: fontSize)
+        let styleValue = theme.readiumRootStyle(fontSize: fontSize)
+        let afterCSS = EPUBWebView.loadCSSResource("ReadiumCSS-after")
         let vw = Int(webView.frame.width)
-        let vh = Int(webView.frame.height)
 
         let js = """
         (function() {
-            var style = document.getElementById('calibreread-style');
-            if (!style) {
-                style = document.createElement('style');
-                style.id = 'calibreread-style';
-                document.head.appendChild(style);
+            // Inject Readium CSS after module
+            var afterStyle = document.getElementById('readium-css-after');
+            if (!afterStyle) {
+                afterStyle = document.createElement('style');
+                afterStyle.id = 'readium-css-after';
+                document.head.appendChild(afterStyle);
             }
-            style.textContent = `\(css)`;
+            afterStyle.textContent = `\(afterCSS)`;
 
+            // Apply theme + user settings (Readium convention: style on :root)
+            document.documentElement.style.cssText = `\(styleValue)`;
+
+            // Set Readium CSS column variables for single-column pagination
             var vw = \(vw);
-            var vh = \(vh);
-            var maxContentWidth = 720;
-            var paddingH = Math.max(60, (vw - maxContentWidth) / 2);
-            var paddingV = 40;
-            var gap = paddingH * 2;
-            var colWidth = vw - gap;
-
-            document.body.style.columnWidth = colWidth + 'px';
-            document.body.style.columnGap = gap + 'px';
-            document.body.style.height = vh + 'px';
-            document.body.style.padding = paddingV + 'px ' + paddingH + 'px';
-            document.body.style.columnFill = 'auto';
+            document.documentElement.style.setProperty('--RS__colWidth', vw + 'px');
+            document.documentElement.style.setProperty('--RS__colGap', vw + 'px');
+            document.documentElement.style.setProperty('--RS__colCount', '1');
 
             // Force layout reflow
-            document.body.offsetHeight;
+            document.documentElement.offsetHeight;
 
-            var scrollW = document.body.scrollWidth;
+            var scrollW = document.documentElement.scrollWidth;
             return Math.max(1, Math.round(scrollW / vw));
         })();
         """
@@ -138,6 +143,45 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
                 cont.resume(returning: (result as? Int) ?? 1)
             }
         }
+    }
+
+    // MARK: - Readium CSS Injection (same as reader for consistent measurement)
+
+    private static func readiumCSSInjectionJS() -> String {
+        let beforeCSS = loadCSSResource("ReadiumCSS-before")
+        let defaultCSS = loadCSSResource("ReadiumCSS-default")
+
+        return """
+        (function() {
+            function injectCSS(id, css, prepend) {
+                var s = document.createElement('style');
+                s.id = id;
+                s.textContent = css;
+                var head = document.head || document.documentElement;
+                if (prepend && head.firstChild) {
+                    head.insertBefore(s, head.firstChild);
+                } else {
+                    head.appendChild(s);
+                }
+            }
+            injectCSS('readium-css-before', `\(beforeCSS)`, true);
+            injectCSS('readium-css-default', `\(defaultCSS)`, false);
+        })();
+        """
+    }
+
+    private static func loadCSSResource(_ name: String) -> String {
+        guard let url = Bundle.main.url(forResource: name, withExtension: "css", subdirectory: "readium-css"),
+              let content = try? String(contentsOf: url, encoding: .utf8) else {
+            guard let url = Bundle.main.url(forResource: name, withExtension: "css"),
+                  let content = try? String(contentsOf: url, encoding: .utf8) else {
+                return ""
+            }
+            return content.replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "`", with: "\\`")
+        }
+        return content.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "`", with: "\\`")
     }
 
     // MARK: - WKNavigationDelegate

@@ -1,0 +1,116 @@
+/* Readium CSS — Default module
+   Adapted from https://github.com/readium/readium-css
+   Licensed under BSD-3-Clause
+
+   Styles for unstyled publications (acts as default stylesheet) */
+
+@namespace url("http://www.w3.org/1999/xhtml");
+@namespace epub url("http://www.idpf.org/2007/ops");
+@namespace m url("http://www.w3.org/1998/Math/MathML/");
+@namespace svg url("http://www.w3.org/2000/svg");
+
+:root {
+  --RS__typeScale: 1.125;
+  --RS__baseFontSize: 100%;
+  --RS__flowSpacing: 1.5rem;
+  --RS__paraSpacing: 0;
+  --RS__paraIndent: 1em;
+}
+
+body {
+  font-size: var(--RS__baseFontSize);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--RS__baseFontFamily);
+  text-indent: 0;
+}
+
+h1 {
+  margin-top: var(--RS__flowSpacing);
+  margin-bottom: var(--RS__flowSpacing);
+  font-size: calc(((1em * var(--RS__typeScale)) * var(--RS__typeScale)) * var(--RS__typeScale));
+}
+
+h2 {
+  margin-top: var(--RS__flowSpacing);
+  margin-bottom: var(--RS__flowSpacing);
+  font-size: calc((1em * var(--RS__typeScale)) * var(--RS__typeScale));
+}
+
+h3 {
+  margin-top: var(--RS__flowSpacing);
+  margin-bottom: var(--RS__flowSpacing);
+  font-size: calc(1em * var(--RS__typeScale));
+}
+
+h4 {
+  margin-top: var(--RS__flowSpacing);
+  margin-bottom: var(--RS__flowSpacing);
+  font-size: 1em;
+}
+
+h5 {
+  margin-top: var(--RS__flowSpacing);
+  margin-bottom: var(--RS__flowSpacing);
+  font-size: smaller;
+}
+
+h6 {
+  margin-top: var(--RS__flowSpacing);
+  margin-bottom: var(--RS__flowSpacing);
+  font-size: small;
+}
+
+blockquote, figure, p, pre, aside, footer, form, hr {
+  margin-top: var(--RS__flowSpacing);
+  margin-bottom: var(--RS__flowSpacing);
+}
+
+p {
+  margin-top: var(--RS__paraSpacing);
+  margin-bottom: var(--RS__paraSpacing);
+  text-indent: var(--RS__paraIndent);
+}
+
+h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p, hr + p {
+  text-indent: 0;
+}
+
+/* Phrasing content */
+code, kbd, samp, tt {
+  font-family: var(--RS__monospaceTf);
+}
+
+sub, sup {
+  position: relative;
+  font-size: 67.5%;
+  line-height: 1;
+}
+
+sub {
+  bottom: -0.2ex;
+}
+
+sup {
+  bottom: 0;
+}
+
+/* Tables */
+table {
+  border-collapse: collapse;
+}
+
+table, th, td {
+  border: 1px solid currentColor;
+  padding: 4px;
+}
+
+/* Links */
+a:link {
+  color: var(--RS__linkColor, #0000EE);
+}
+
+a:visited {
+  color: var(--RS__visitedColor, #551A8B);
+}

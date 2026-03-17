@@ -1,0 +1,198 @@
+/* Readium CSS — After module
+   Adapted from https://github.com/readium/readium-css
+   Licensed under BSD-3-Clause
+
+   Includes: pagination, scroll mode, night mode, sepia mode, user settings */
+
+@namespace url("http://www.w3.org/1999/xhtml");
+@namespace epub url("http://www.idpf.org/2007/ops");
+
+/* ========== Pagination ========== */
+
+:root {
+  --RS__colWidth: 45em;
+  --RS__colCount: 1;
+  --RS__colGap: 0;
+  --RS__maxLineLength: 40rem;
+  --RS__pageGutter: 20px;
+}
+
+/* Responsive page gutters */
+@media screen and (min-width: 35em) {
+  :root { --RS__pageGutter: 30px; }
+}
+
+@media screen and (min-width: 45em) {
+  :root { --RS__pageGutter: 40px; }
+}
+
+@media screen and (min-width: 75em) {
+  :root { --RS__pageGutter: 50px; }
+}
+
+/* Pagination layout on :root */
+:root {
+  position: relative;
+  -webkit-column-width: var(--RS__colWidth);
+  column-width: var(--RS__colWidth);
+  -webkit-column-count: var(--RS__colCount);
+  column-count: var(--RS__colCount);
+  -webkit-column-gap: var(--RS__colGap);
+  column-gap: var(--RS__colGap);
+  column-fill: auto;
+  width: 100%;
+  height: 100vh;
+  max-width: 100%;
+  max-height: 100vh;
+  min-width: 100%;
+  min-height: 100vh;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-size: 100% !important;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+body {
+  width: 100%;
+  max-width: var(--RS__maxLineLength) !important;
+  padding: 0 var(--RS__pageGutter) !important;
+  margin: 0 auto !important;
+  box-sizing: border-box;
+}
+
+/* Prevent scrollbar flash */
+::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* ========== Sepia Mode ========== */
+
+:root[style*="readium-sepia-on"] {
+  --RS__backgroundColor: #faf4e8;
+  --RS__textColor: #121212;
+  --RS__linkColor: #8b6914;
+  --RS__visitedColor: #6b5200;
+  --RS__selectionBackgroundColor: #d4c4a0;
+  --RS__selectionTextColor: inherit;
+}
+
+:root[style*="readium-sepia-on"] *:not(a) {
+  color: inherit !important;
+  background-color: transparent !important;
+}
+
+:root[style*="readium-sepia-on"] svg,
+:root[style*="readium-sepia-on"] img {
+  background-color: transparent !important;
+  mix-blend-mode: multiply;
+}
+
+/* ========== Night Mode ========== */
+
+:root[style*="readium-night-on"] {
+  --RS__backgroundColor: #1c1c1e;
+  --RS__textColor: #d1d1d6;
+  --RS__linkColor: #6b9bd2;
+  --RS__visitedColor: #8b7bd2;
+  --RS__selectionBackgroundColor: #344860;
+  --RS__selectionTextColor: inherit;
+}
+
+:root[style*="readium-night-on"] *:not(a) {
+  color: inherit !important;
+  background-color: transparent !important;
+  border-color: currentColor !important;
+}
+
+:root[style*="readium-night-on"] a:link,
+:root[style*="readium-night-on"] a:link * {
+  color: var(--RS__linkColor) !important;
+}
+
+:root[style*="readium-night-on"] a:visited,
+:root[style*="readium-night-on"] a:visited * {
+  color: var(--RS__visitedColor) !important;
+}
+
+:root[style*="readium-night-on"] img {
+  -webkit-filter: brightness(80%);
+  filter: brightness(80%);
+}
+
+/* ========== User Settings ========== */
+
+/* Font size override */
+:root[style*="--USER__fontSize"] {
+  font-size: var(--USER__fontSize) !important;
+}
+
+/* Font family override */
+:root[style*="--USER__fontFamily"] body {
+  font-family: var(--USER__fontFamily) !important;
+}
+
+/* Text alignment */
+:root[style*="--USER__textAlign"] body {
+  text-align: var(--USER__textAlign) !important;
+}
+
+/* Hyphenation */
+:root[style*="--USER__bodyHyphens"] body {
+  -webkit-hyphens: var(--USER__bodyHyphens) !important;
+  hyphens: var(--USER__bodyHyphens) !important;
+}
+
+/* Line height */
+:root[style*="--USER__lineHeight"] body {
+  line-height: var(--USER__lineHeight) !important;
+}
+
+/* Word spacing */
+:root[style*="--USER__wordSpacing"] body {
+  word-spacing: var(--USER__wordSpacing) !important;
+}
+
+/* Letter spacing */
+:root[style*="--USER__letterSpacing"] body {
+  letter-spacing: var(--USER__letterSpacing) !important;
+}
+
+/* Paragraph spacing */
+:root[style*="--USER__paraSpacing"] p {
+  margin-top: var(--USER__paraSpacing) !important;
+  margin-bottom: var(--USER__paraSpacing) !important;
+}
+
+/* Paragraph indent */
+:root[style*="--USER__paraIndent"] p {
+  text-indent: var(--USER__paraIndent) !important;
+}
+
+/* Background color override */
+:root[style*="--USER__backgroundColor"] {
+  background-color: var(--USER__backgroundColor) !important;
+}
+
+/* Text color override */
+:root[style*="--USER__textColor"] {
+  color: var(--USER__textColor) !important;
+}
+
+/* Column count */
+:root[style*="--USER__colCount"] {
+  -webkit-column-count: var(--USER__colCount) !important;
+  column-count: var(--USER__colCount) !important;
+}
+
+/* Page margins */
+:root[style*="--USER__pageMargins"] body {
+  padding: 0 calc(var(--RS__pageGutter) * var(--USER__pageMargins)) !important;
+}
+
+/* Max line length */
+:root[style*="--USER__maxLineLength"] body {
+  max-width: var(--USER__maxLineLength) !important;
+}

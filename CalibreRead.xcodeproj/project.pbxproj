@@ -35,6 +35,9 @@
 		A10031 /* EPUBKit in Frameworks */ = {isa = PBXBuildFile; productRef = D10002; };
 		A10032 /* BookWindowData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10027; };
 		A10033 /* EPUBPaginator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10028; };
+		A10040 /* ReadiumCSS-before.css in Resources */ = {isa = PBXBuildFile; fileRef = B10040; };
+		A10041 /* ReadiumCSS-default.css in Resources */ = {isa = PBXBuildFile; fileRef = B10041; };
+		A10042 /* ReadiumCSS-after.css in Resources */ = {isa = PBXBuildFile; fileRef = B10042; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -67,6 +70,9 @@
 		B10026 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B10027 /* BookWindowData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookWindowData.swift; sourceTree = "<group>"; };
 		B10028 /* EPUBPaginator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPUBPaginator.swift; sourceTree = "<group>"; };
+		B10040 /* ReadiumCSS-before.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = "ReadiumCSS-before.css"; sourceTree = "<group>"; };
+		B10041 /* ReadiumCSS-default.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = "ReadiumCSS-default.css"; sourceTree = "<group>"; };
+		B10042 /* ReadiumCSS-after.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = "ReadiumCSS-after.css"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -185,8 +191,19 @@
 			isa = PBXGroup;
 			children = (
 				B10024 /* reader.css */,
+				G10010 /* readium-css */,
 			);
 			path = Resources;
+			sourceTree = "<group>";
+		};
+		G10010 /* readium-css */ = {
+			isa = PBXGroup;
+			children = (
+				B10040 /* ReadiumCSS-before.css */,
+				B10041 /* ReadiumCSS-default.css */,
+				B10042 /* ReadiumCSS-after.css */,
+			);
+			path = "readium-css";
 			sourceTree = "<group>";
 		};
 		G10099 /* Products */ = {
@@ -265,6 +282,9 @@
 			files = (
 				A10023 /* Assets.xcassets in Resources */,
 				A10024 /* reader.css in Resources */,
+				A10040 /* ReadiumCSS-before.css in Resources */,
+				A10041 /* ReadiumCSS-default.css in Resources */,
+				A10042 /* ReadiumCSS-after.css in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
