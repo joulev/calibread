@@ -137,7 +137,7 @@ struct EPUBWebView: NSViewRepresentable {
                 document.head.appendChild(style);
             }
             style.textContent = `\(css)`;
-            setTimeout(function() { CalibreReader.recalculate(); }, 100);
+            requestAnimationFrame(function() { CalibreReader.recalculate(); });
         })();
         """
         webView.evaluateJavaScript(js, completionHandler: nil)
@@ -279,18 +279,17 @@ struct EPUBWebView: NSViewRepresentable {
 
                 window.CalibreReader = CalibreReader;
 
-                // Initial calculation after layout settles, then reveal
-                // Body stays hidden until explicitly revealed to avoid flash
-                // when navigating backward (goToFraction needs to run first)
-                setTimeout(function() {
+                // Use requestAnimationFrame for faster initial layout — no arbitrary
+                // setTimeout delay. The browser guarantees layout is flushed by rAF.
+                requestAnimationFrame(function() {
                     CalibreReader.recalculate();
                     if (!window._CalibreWaitForFraction) {
                         document.body.style.opacity = '1';
                         window.webkit.messageHandlers.pageHandler.postMessage({ action: 'contentReady' });
                     }
-                }, 200);
-                // Second recalculation for images that load late
-                setTimeout(function() { CalibreReader.recalculate(); }, 800);
+                });
+                // Deferred recalculation for late-loading images (reduced from 800ms)
+                setTimeout(function() { CalibreReader.recalculate(); }, 400);
 
                 // Recalculate on resize — hide content while layout settles
                 var resizeTimer = null;
@@ -343,11 +342,11 @@ struct EPUBWebView: NSViewRepresentable {
                 let flagJS = "window._CalibreWaitForFraction = true;"
                 webView.evaluateJavaScript(flagJS, completionHandler: nil)
                 let goToJS = """
-                setTimeout(function() {
+                requestAnimationFrame(function() {
                     CalibreReader.goToFraction(\(fraction));
                     document.body.style.opacity = '1';
                     window.webkit.messageHandlers.pageHandler.postMessage({ action: 'contentReady' });
-                }, 250);
+                });
                 """
                 webView.evaluateJavaScript(goToJS, completionHandler: nil)
             }

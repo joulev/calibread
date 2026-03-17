@@ -1,29 +1,146 @@
 import WebKit
 
-/// Measures page counts for all chapters in an EPUB by loading each into a hidden
-/// WKWebView with the same column-based pagination layout as the reader.
+/// Measures page counts for all chapters in an EPUB using a pool of concurrent
+/// WKWebViews. This is significantly faster than the sequential approach since
+/// multiple chapters are measured in parallel.
 ///
-/// After pagination completes, the caller knows:
-/// - Total pages in the entire book
-/// - Pages per section/chapter
-/// - Current global page position (derived from chapter index + page within chapter)
+/// Results are cached to disk so re-opening a book with the same settings is instant.
 @MainActor
-final class EPUBPaginator: NSObject, WKNavigationDelegate {
-    private let webView: WKWebView
-    /// Invisible window that hosts the WKWebView — required for WKWebView to
-    /// actually load content and fire navigation delegate callbacks.
-    private let hostWindow: NSWindow
+final class EPUBPaginator {
     private let chapters: [EPUBService.Chapter]
     private let contentBaseURL: URL
     private let theme: ReaderTheme
     private let fontSize: Int
-    private var currentIndex = 0
+    private let viewportSize: CGSize
+    private let cacheKey: String
+
+    /// Number of concurrent WKWebView workers.
+    private static let concurrency = 4
+
+    init(
+        chapters: [EPUBService.Chapter],
+        contentBaseURL: URL,
+        theme: ReaderTheme,
+        fontSize: Int,
+        viewportSize: CGSize,
+        bookIdentifier: String = ""
+    ) {
+        self.chapters = chapters
+        self.contentBaseURL = contentBaseURL
+        self.theme = theme
+        self.fontSize = fontSize
+        self.viewportSize = viewportSize
+
+        // Build a cache key from all parameters that affect pagination
+        let keyComponents = [
+            bookIdentifier,
+            "\(Int(viewportSize.width))x\(Int(viewportSize.height))",
+            "\(fontSize)",
+            theme.rawValue,
+            "\(chapters.count)"
+        ]
+        self.cacheKey = keyComponents.joined(separator: "-")
+    }
+
+    // MARK: - Public API
+
+    /// Measure all chapters and report progress via the callback.
+    /// Returns the full array of page counts, or nil if cancelled.
+    func measureAll(
+        onProgress: @escaping (Int) -> Void
+    ) async -> [Int]? {
+        // Check cache first
+        if let cached = PaginationCache.shared.load(key: cacheKey, chapterCount: chapters.count) {
+            // Report instant completion
+            for i in 0..<cached.count {
+                onProgress(i + 1)
+            }
+            return cached
+        }
+
+        guard !chapters.isEmpty else { return [] }
+
+        let workerCount = min(Self.concurrency, chapters.count)
+        let workers = (0..<workerCount).map { _ in
+            PaginationWorker(
+                contentBaseURL: contentBaseURL,
+                theme: theme,
+                fontSize: fontSize,
+                viewportSize: viewportSize
+            )
+        }
+
+        var results = [Int](repeating: 1, count: chapters.count)
+        var nextIndex = 0
+        var completedCount = 0
+
+        // Use a continuation-based approach to dispatch work across workers
+        await withTaskGroup(of: (Int, Int)?.self) { group in
+            // Seed each worker with initial work
+            for worker in workers {
+                guard nextIndex < chapters.count else { break }
+                let index = nextIndex
+                nextIndex += 1
+                group.addTask { @MainActor in
+                    let count = await worker.measure(chapter: self.chapters[index])
+                    return (index, count)
+                }
+            }
+
+            // As each completes, feed it the next chapter
+            for await result in group {
+                guard !Task.isCancelled else { break }
+                guard let (index, count) = result else { continue }
+
+                results[index] = count
+                completedCount += 1
+                onProgress(completedCount)
+
+                // Assign next chapter to a worker
+                if nextIndex < chapters.count {
+                    let nextIdx = nextIndex
+                    nextIndex += 1
+                    // Find a free worker — we reuse them round-robin
+                    let workerIdx = completedCount % workerCount
+                    let worker = workers[workerIdx]
+                    group.addTask { @MainActor in
+                        let cnt = await worker.measure(chapter: self.chapters[nextIdx])
+                        return (nextIdx, cnt)
+                    }
+                }
+            }
+        }
+
+        guard !Task.isCancelled else {
+            for worker in workers { worker.teardown() }
+            return nil
+        }
+
+        // Tear down workers
+        for worker in workers { worker.teardown() }
+
+        // Cache results
+        PaginationCache.shared.save(key: cacheKey, counts: results)
+
+        return results
+    }
+}
+
+// MARK: - Pagination Worker
+
+/// A single WKWebView-based worker that can measure one chapter at a time.
+@MainActor
+private final class PaginationWorker: NSObject, WKNavigationDelegate {
+    private let webView: WKWebView
+    private let hostWindow: NSWindow
+    private let contentBaseURL: URL
+    private let theme: ReaderTheme
+    private let fontSize: Int
 
     private var navigationContinuation: CheckedContinuation<Void, Never>?
     private var navigationDidComplete = false
 
     init(
-        chapters: [EPUBService.Chapter],
         contentBaseURL: URL,
         theme: ReaderTheme,
         fontSize: Int,
@@ -36,9 +153,6 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
         let wv = WKWebView(frame: NSRect(origin: .zero, size: viewportSize), configuration: config)
         wv.setValue(false, forKey: "drawsBackground")
 
-        // WKWebView needs to be hosted in a real window for navigation delegate
-        // callbacks to fire and for CSS column layout to be computed. We make the
-        // window fully transparent and behind everything so it's invisible.
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: viewportSize),
             styleMask: .borderless,
@@ -53,7 +167,6 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
 
         self.webView = wv
         self.hostWindow = window
-        self.chapters = chapters
         self.contentBaseURL = contentBaseURL
         self.theme = theme
         self.fontSize = fontSize
@@ -62,18 +175,12 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
         webView.navigationDelegate = self
     }
 
-    deinit {
+    func teardown() {
         hostWindow.orderOut(nil)
     }
 
-    /// Measure the next chapter's page count. Returns `nil` when all chapters have been measured.
-    func measureNext() async -> (index: Int, pageCount: Int)? {
-        guard currentIndex < chapters.count else { return nil }
-
-        let chapter = chapters[currentIndex]
-        let index = currentIndex
-        currentIndex += 1
-
+    /// Measure page count for a single chapter.
+    func measure(chapter: EPUBService.Chapter) async -> Int {
         navigationDidComplete = false
         navigationContinuation = nil
 
@@ -87,14 +194,12 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
             }
         }
 
-        // Brief delay for images to affect layout
-        try? await Task.sleep(for: .milliseconds(150))
+        // Brief delay for images — reduced from 150ms to 50ms since we're doing
+        // a measurement pass, not rendering for display
+        try? await Task.sleep(for: .milliseconds(50))
 
-        let pageCount = await measurePages()
-        return (index: index, pageCount: pageCount)
+        return await measurePages()
     }
-
-    // MARK: - Page Measurement
 
     private func measurePages() async -> Int {
         let css = theme.css(fontSize: fontSize)
@@ -125,7 +230,6 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
             document.body.style.padding = paddingV + 'px ' + paddingH + 'px';
             document.body.style.columnFill = 'auto';
 
-            // Force layout reflow
             document.body.offsetHeight;
 
             var scrollW = document.body.scrollWidth;
@@ -167,5 +271,67 @@ final class EPUBPaginator: NSObject, WKNavigationDelegate {
         } else {
             navigationDidComplete = true
         }
+    }
+}
+
+// MARK: - Pagination Cache
+
+/// Simple file-based cache for page counts. Keyed by a string that encodes
+/// book identity + viewport + font size + theme.
+final class PaginationCache: @unchecked Sendable {
+    static let shared = PaginationCache()
+
+    private let cacheDir: URL = {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CalibreRead")
+            .appendingPathComponent("PaginationCache")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }()
+
+    /// Maximum age for cache entries (7 days).
+    private let maxAge: TimeInterval = 7 * 24 * 60 * 60
+
+    func load(key: String, chapterCount: Int) -> [Int]? {
+        let url = cacheDir.appendingPathComponent(safeFilename(key))
+        guard let data = try? Data(contentsOf: url),
+              let entry = try? JSONDecoder().decode(CacheEntry.self, from: data) else {
+            return nil
+        }
+
+        // Validate freshness and chapter count
+        guard Date().timeIntervalSince(entry.date) < maxAge,
+              entry.counts.count == chapterCount else {
+            try? FileManager.default.removeItem(at: url)
+            return nil
+        }
+
+        return entry.counts
+    }
+
+    func save(key: String, counts: [Int]) {
+        let url = cacheDir.appendingPathComponent(safeFilename(key))
+        let entry = CacheEntry(date: Date(), counts: counts)
+        if let data = try? JSONEncoder().encode(entry) {
+            try? data.write(to: url, options: .atomic)
+        }
+    }
+
+    func invalidate(key: String) {
+        let url = cacheDir.appendingPathComponent(safeFilename(key))
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    private func safeFilename(_ key: String) -> String {
+        // Simple hash to avoid filesystem issues with long/special character keys
+        let hash = key.utf8.reduce(into: UInt64(5381)) { result, byte in
+            result = result &* 33 &+ UInt64(byte)
+        }
+        return "\(hash).json"
+    }
+
+    private struct CacheEntry: Codable {
+        let date: Date
+        let counts: [Int]
     }
 }
