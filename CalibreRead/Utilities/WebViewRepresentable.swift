@@ -226,19 +226,13 @@ struct EPUBWebView: NSViewRepresentable {
                         // occupies a "line pitch" worth of width.  Furigana (<ruby>/<rt>)
                         // widens lines beyond what CSS line-height reports.
                         //
-                        // We measure the actual rendered line advance with a probe
-                        // element.  If the chapter contains any <ruby>, the probe
-                        // includes an annotation so we snap to the worst-case pitch —
-                        // non-ruby lines simply get a bit of extra space but are never
-                        // clipped.  If the chapter has no ruby at all, we measure a
-                        // plain character to avoid wasting space.
+                        // Always measure with a ruby probe so the line pitch is
+                        // consistent across all chapters, whether or not they
+                        // individually contain furigana.
                         if (this.isVertical) {
-                            var hasRuby = !!document.querySelector('ruby');
                             var probe = document.createElement('div');
                             probe.style.cssText = 'position:absolute;visibility:hidden;display:inline-block;';
-                            probe.innerHTML = hasRuby
-                                ? '<ruby>字<rt>じ</rt></ruby>'
-                                : '字';
+                            probe.innerHTML = '<ruby>字<rt>じ</rt></ruby>';
                             document.body.appendChild(probe);
                             var linePitch = probe.offsetWidth;
                             document.body.removeChild(probe);
