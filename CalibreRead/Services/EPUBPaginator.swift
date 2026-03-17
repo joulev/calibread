@@ -243,14 +243,17 @@ private final class PaginationWorker: NSObject, WKNavigationDelegate {
             var wm = bodyWM || htmlWM || 'horizontal-tb';
             var isVertical = (wm === 'vertical-rl' || wm === 'vertical-lr' || wm === 'tb-rl' || wm === 'tb');
 
-            // In vertical-rl, snap column width to a multiple of the actual
-            // rendered line pitch.  A probe with <ruby> is used so furigana
-            // annotations are accounted for (they widen lines beyond what CSS
-            // line-height reports).
+            // In vertical-rl, snap column width to the actual rendered line
+            // pitch.  If the chapter has <ruby> (furigana), the probe includes
+            // an annotation so we snap to the worst-case pitch.  Non-ruby
+            // lines get a bit of extra space but are never clipped.
             if (isVertical) {
+                var hasRuby = !!document.querySelector('ruby');
                 var probe = document.createElement('div');
                 probe.style.cssText = 'position:absolute;visibility:hidden;display:inline-block;';
-                probe.innerHTML = '<ruby>字<rt>じ</rt></ruby>';
+                probe.innerHTML = hasRuby
+                    ? '<ruby>字<rt>じ</rt></ruby>'
+                    : '字';
                 document.body.appendChild(probe);
                 var linePitch = probe.offsetWidth;
                 document.body.removeChild(probe);

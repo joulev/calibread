@@ -224,13 +224,21 @@ struct EPUBWebView: NSViewRepresentable {
 
                         // In vertical-rl, lines stack horizontally and each line
                         // occupies a "line pitch" worth of width.  Furigana (<ruby>/<rt>)
-                        // increases the effective pitch beyond what CSS line-height
-                        // reports, so we measure the actual rendered advance using a
-                        // probe element that includes a ruby annotation.
+                        // widens lines beyond what CSS line-height reports.
+                        //
+                        // We measure the actual rendered line advance with a probe
+                        // element.  If the chapter contains any <ruby>, the probe
+                        // includes an annotation so we snap to the worst-case pitch —
+                        // non-ruby lines simply get a bit of extra space but are never
+                        // clipped.  If the chapter has no ruby at all, we measure a
+                        // plain character to avoid wasting space.
                         if (this.isVertical) {
+                            var hasRuby = !!document.querySelector('ruby');
                             var probe = document.createElement('div');
                             probe.style.cssText = 'position:absolute;visibility:hidden;display:inline-block;';
-                            probe.innerHTML = '<ruby>字<rt>じ</rt></ruby>';
+                            probe.innerHTML = hasRuby
+                                ? '<ruby>字<rt>じ</rt></ruby>'
+                                : '字';
                             document.body.appendChild(probe);
                             var linePitch = probe.offsetWidth;
                             document.body.removeChild(probe);
