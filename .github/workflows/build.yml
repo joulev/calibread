@@ -2,10 +2,10 @@ name: Build CalibreRead
 
 on:
   push:
-    branches: ["*"]
+    branches: ["**"]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -41,19 +41,3 @@ jobs:
           name: CalibreRead-${{ github.sha }}
           path: CalibreRead.zip
 
-      - name: Create Release
-        if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: build-${{ github.run_number }}
-          name: "Build ${{ github.run_number }}: ${{ github.event.head_commit.message }}"
-          body: |
-            Automated build from commit ${{ github.sha }}.
-
-            **To install:**
-            1. Download `CalibreRead.zip` below
-            2. Unzip it
-            3. Run `xattr -cr CalibreRead.app` in Terminal (one-time, removes Gatekeeper quarantine)
-            4. Move to `/Applications` and open
-          files: CalibreRead.zip
-          generate_release_notes: true
