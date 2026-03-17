@@ -451,15 +451,15 @@ struct EPUBReaderView: View {
 
                     // Section dividers (only when pagination is complete)
                     if let counts = sectionPageCounts, let total = totalBookPages, total > 0 {
-                        let dividers = sectionDividerOffsets(counts: counts, total: total)
+                        let dividers = namedSectionDividerOffsets(counts: counts, total: total, service: service)
                         ForEach(0..<dividers.count, id: \.self) { i in
                             // In trailing-aligned ZStack, offset is relative to the right edge
                             let offset = isVerticalText
                                 ? -(barWidth * dividers[i])
                                 : barWidth * dividers[i]
                             Rectangle()
-                                .fill(theme.swiftUISecondary.opacity(0.2))
-                                .frame(width: 1)
+                                .fill(theme.swiftUISecondary.opacity(0.4))
+                                .frame(width: 1.5)
                                 .offset(x: offset)
                         }
                     }
@@ -470,14 +470,19 @@ struct EPUBReaderView: View {
     }
 
     /// Compute the fractional x-offsets for section dividers on the progress bar.
-    private func sectionDividerOffsets(counts: [Int], total: Int) -> [Double] {
+    /// Only places dividers at boundaries of named chapters (chapters with TOC entries),
+    /// so unnamed chapters are visually grouped with their named predecessor.
+    private func namedSectionDividerOffsets(counts: [Int], total: Int, service: EPUBService) -> [Double] {
         guard total > 0, counts.count > 1 else { return [] }
         var offsets: [Double] = []
         var cumulative = 0
-        // Skip the last section — we don't need a divider at the very end
-        for i in 0..<(counts.count - 1) {
+        for i in 0..<counts.count {
             cumulative += counts[i]
-            offsets.append(Double(cumulative) / Double(total))
+            // Place a divider before the next named chapter (skip divider at the very end)
+            let nextIndex = i + 1
+            if nextIndex < counts.count, chapterHasTOCEntry(nextIndex, service: service) {
+                offsets.append(Double(cumulative) / Double(total))
+            }
         }
         return offsets
     }
