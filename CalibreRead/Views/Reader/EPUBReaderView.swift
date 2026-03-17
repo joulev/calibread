@@ -47,6 +47,15 @@ struct EPUBReaderView: View {
         return previousPages + currentPage
     }
 
+    /// Current reading position for jump history tracking.
+    private var currentPosition: PageJumpHistory.Position {
+        PageJumpHistory.Position(
+            chapterIndex: currentChapterIndex,
+            page: currentPage,
+            estimatedGlobalPage: currentGlobalPage ?? (currentChapterIndex * totalPages + currentPage)
+        )
+    }
+
     /// Overall reading progress as a fraction 0...1.
     /// Uses actual page counts when available, falls back to chapter-weighted estimate.
     private var overallProgress: Double {
@@ -226,14 +235,10 @@ struct EPUBReaderView: View {
             startPagination()
         }
         .onChange(of: currentPage) { _, _ in
-            if let globalPage = currentGlobalPage {
-                jumpHistory.pageDidChange(to: globalPage)
-            }
+            jumpHistory.positionDidChange(to: currentPosition)
         }
         .onChange(of: currentChapterIndex) { _, _ in
-            if let globalPage = currentGlobalPage {
-                jumpHistory.pageDidChange(to: globalPage)
-            }
+            jumpHistory.positionDidChange(to: currentPosition)
         }
     }
 
@@ -302,14 +307,14 @@ struct EPUBReaderView: View {
                 navigationArrow(isLeft: false)
             }
 
-            ZStack {
-                bottomBar(service: service)
-
-                // Jump history back/forward buttons
-                if jumpHistory.isVisible {
-                    jumpHistoryButtons()
+            bottomBar(service: service)
+                .overlay(alignment: .top) {
+                    // Jump history back/forward buttons, floating above the bottom bar
+                    if jumpHistory.isVisible {
+                        jumpHistoryButtons()
+                            .offset(y: -28)
+                    }
                 }
-            }
         }
     }
 
@@ -418,9 +423,8 @@ struct EPUBReaderView: View {
         HStack(spacing: 4) {
             if jumpHistory.canGoBack {
                 Button {
-                    guard let globalPage = currentGlobalPage,
-                          let target = jumpHistory.goBack(currentGlobalPage: globalPage) else { return }
-                    navigateToGlobalPage(target)
+                    guard let target = jumpHistory.goBack(from: currentPosition) else { return }
+                    navigateToPosition(target)
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 10, weight: .semibold))
@@ -432,14 +436,12 @@ struct EPUBReaderView: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .help("Go back to page \(jumpHistory.backTarget ?? 0)")
             }
 
             if jumpHistory.canGoForward {
                 Button {
-                    guard let globalPage = currentGlobalPage,
-                          let target = jumpHistory.goForward(currentGlobalPage: globalPage) else { return }
-                    navigateToGlobalPage(target)
+                    guard let target = jumpHistory.goForward(from: currentPosition) else { return }
+                    navigateToPosition(target)
                 } label: {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 10, weight: .semibold))
@@ -451,7 +453,6 @@ struct EPUBReaderView: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .help("Go forward to page \(jumpHistory.forwardTarget ?? 0)")
             }
         }
         .padding(.horizontal, 8)
@@ -564,7 +565,6 @@ struct EPUBReaderView: View {
         paginationTask?.cancel()
         sectionPageCounts = nil
         paginationProgress = 0
-        jumpHistory.reset()
 
         paginationTask = Task {
             // Small debounce for rapid changes (font size adjustment, window resize)
@@ -587,8 +587,7 @@ struct EPUBReaderView: View {
             guard !Task.isCancelled, let counts else { return }
             sectionPageCounts = counts
             // Seed jump history with current position now that we have page counts
-            let previousPages = counts.prefix(currentChapterIndex).reduce(0, +)
-            jumpHistory.lastKnownPage = previousPages + currentPage
+            jumpHistory.lastKnownPosition = currentPosition
         }
     }
 
@@ -621,29 +620,28 @@ struct EPUBReaderView: View {
         }
     }
 
-    /// Navigate to a specific global page number by converting it to
-    /// chapter index + page within chapter. Used by jump history back/forward.
-    private func navigateToGlobalPage(_ globalPage: Int) {
-        guard let counts = sectionPageCounts else { return }
-        var remaining = globalPage
-        for (index, count) in counts.enumerated() {
-            if remaining <= count {
-                let targetPage = max(1, remaining)
-                if index != currentChapterIndex {
-                    currentChapterIndex = index
-                    // Set pending fraction so the page loads at the right position
-                    let fraction = count > 1 ? Double(targetPage - 1) / Double(count - 1) : 0
-                    pageController.pendingFraction = fraction
-                } else {
-                    // Same chapter, just go to the page via JS
-                    let fraction = count > 1 ? Double(targetPage - 1) / Double(count - 1) : 0
-                    pageController.goToFraction(fraction)
-                }
-                saveProgress()
-                return
+    /// Navigate to a saved position. Used by jump history back/forward.
+    private func navigateToPosition(_ position: PageJumpHistory.Position) {
+        let targetChapter = position.chapterIndex
+        let targetPage = position.page
+
+        if targetChapter != currentChapterIndex {
+            currentChapterIndex = targetChapter
+            // Use the page count for the target chapter to compute the fraction
+            let chapterPages: Int
+            if let counts = sectionPageCounts, targetChapter < counts.count {
+                chapterPages = counts[targetChapter]
+            } else {
+                chapterPages = totalPages
             }
-            remaining -= count
+            let fraction = chapterPages > 1 ? Double(targetPage - 1) / Double(chapterPages - 1) : 0
+            pageController.pendingFraction = fraction
+        } else {
+            // Same chapter — navigate directly via JS
+            let fraction = totalPages > 1 ? Double(targetPage - 1) / Double(totalPages - 1) : 0
+            pageController.goToFraction(fraction)
         }
+        saveProgress()
     }
 
     private func saveProgress() {
