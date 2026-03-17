@@ -4,6 +4,11 @@
 // Handles CSS column-based pagination, page navigation via translateX,
 // and reports page state back to Swift via WKScriptMessageHandler.
 //
+// Supports both horizontal-tb (normal LTR text) and vertical-rl
+// (Japanese/Chinese vertical text) writing modes. In vertical-rl,
+// columns flow right-to-left, so the transform direction and keyboard
+// mappings are reversed.
+//
 // Expects:
 //   - A <style id="calibreread-style"> element (injected before this script)
 //   - window.webkit.messageHandlers.pageHandler (WKScriptMessageHandler)
@@ -14,6 +19,7 @@
 //   { action: "prevChapter" }            — user navigated before first page
 //   { action: "contentReady" }           — content is visible and ready
 //   { action: "contentHidden" }          — content hidden during transition
+//   { action: "writingMode", isVertical: Bool } — detected writing mode
 
 (function() {
     var MAX_CONTENT_WIDTH = 640;
@@ -25,8 +31,23 @@
         currentPage: 0,
         totalPages: 1,
         pageWidth: 0,
+        isVertical: false,
+
+        detectWritingMode: function() {
+            var htmlStyle = getComputedStyle(document.documentElement);
+            var bodyStyle = getComputedStyle(document.body);
+            var htmlWM = htmlStyle.writingMode || htmlStyle['-webkit-writing-mode'] || '';
+            var bodyWM = bodyStyle.writingMode || bodyStyle['-webkit-writing-mode'] || '';
+            this.isVertical = (htmlWM === 'vertical-rl' || bodyWM === 'vertical-rl');
+            window.webkit.messageHandlers.pageHandler.postMessage({
+                action: 'writingMode',
+                isVertical: this.isVertical
+            });
+        },
 
         recalculate: function() {
+            this.detectWritingMode();
+
             var vw = window.innerWidth;
             var vh = window.innerHeight;
             var paddingH = Math.max(PADDING_MIN_H, (vw - MAX_CONTENT_WIDTH) / 2);
@@ -55,7 +76,17 @@
         },
 
         applyTransform: function() {
-            document.body.style.transform = 'translateX(-' + (this.currentPage * this.pageWidth) + 'px)';
+            if (this.isVertical) {
+                // vertical-rl: columns flow right-to-left. Without transform,
+                // the viewport shows the rightmost content (page 0 / first page).
+                // To show page N, shift the body to the RIGHT by N * pageWidth
+                // so columns further to the left come into view.
+                document.body.style.transform = 'translateX(' + (this.currentPage * this.pageWidth) + 'px)';
+            } else {
+                // horizontal-tb: columns flow left-to-right. Page 0 is at
+                // the left edge; shift left to reveal later pages.
+                document.body.style.transform = 'translateX(-' + (this.currentPage * this.pageWidth) + 'px)';
+            }
         },
 
         reportPage: function() {
@@ -159,15 +190,20 @@
         }, RESIZE_DEBOUNCE_MS);
     });
 
-    // Handle keyboard navigation within the webview
+    // Handle keyboard navigation within the webview.
+    // For vertical-rl, left/right arrows are swapped: left = next, right = prev.
     document.addEventListener('keydown', function(e) {
         if (document.body.style.opacity === '0') return;
-        if (e.key === 'ArrowRight' || e.key === ' ') {
+        var isVertical = CalibreReader.isVertical;
+        if (e.key === 'ArrowRight') {
             e.preventDefault();
-            CalibreReader.nextPage();
+            if (isVertical) { CalibreReader.prevPage(); } else { CalibreReader.nextPage(); }
         } else if (e.key === 'ArrowLeft') {
             e.preventDefault();
-            CalibreReader.prevPage();
+            if (isVertical) { CalibreReader.nextPage(); } else { CalibreReader.prevPage(); }
+        } else if (e.key === ' ') {
+            e.preventDefault();
+            CalibreReader.nextPage();
         }
     });
 

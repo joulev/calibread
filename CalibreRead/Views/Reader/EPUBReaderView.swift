@@ -34,6 +34,7 @@ struct EPUBReaderView: View {
     @State private var isHoveringRight = false
     @State private var isContentReady = false
     @State private var frozenProgress: Double?
+    @State private var isVerticalText = false
 
     // Pagination state
     @State private var sectionPageCounts: [Int]? = nil
@@ -174,12 +175,14 @@ struct EPUBReaderView: View {
         }
         .onKeyPress(.leftArrow) {
             guard isContentReady else { return .handled }
-            pageController.previousPage()
+            // vertical-rl: left = next page (reading progresses right-to-left)
+            if isVerticalText { pageController.nextPage() } else { pageController.previousPage() }
             return .handled
         }
         .onKeyPress(.rightArrow) {
             guard isContentReady else { return .handled }
-            pageController.nextPage()
+            // vertical-rl: right = previous page
+            if isVerticalText { pageController.previousPage() } else { pageController.nextPage() }
             return .handled
         }
         .onKeyPress(.space) {
@@ -249,6 +252,9 @@ struct EPUBReaderView: View {
                         },
                         onContentReadyChanged: { ready in
                             isContentReady = ready
+                        },
+                        onWritingModeDetected: { vertical in
+                            isVerticalText = vertical
                         }
                     )
                     .onAppear {
@@ -335,9 +341,12 @@ struct EPUBReaderView: View {
     private func navigationArrow(isLeft: Bool) -> some View {
         let isHovering = isLeft ? isHoveringLeft : isHoveringRight
 
+        // For vertical-rl, left button = next (reading right-to-left)
+        let isNextButton = isVerticalText ? isLeft : !isLeft
+
         return Button {
             guard isContentReady else { return }
-            if !isLeft {
+            if isNextButton {
                 pageController.nextPage()
             } else {
                 pageController.previousPage()

@@ -33,6 +33,7 @@ struct EPUBWebView: NSViewRepresentable {
     let onPageInfo: ((Int, Int) -> Void)?  // (currentPage, totalPages)
     let onChapterEnd: ((ChapterEdge) -> Void)?
     let onContentReadyChanged: ((Bool) -> Void)?
+    let onWritingModeDetected: ((Bool) -> Void)?  // true = vertical-rl
 
     enum ChapterEdge {
         case next
@@ -40,7 +41,7 @@ struct EPUBWebView: NSViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onPageInfo: onPageInfo, onChapterEnd: onChapterEnd, onContentReadyChanged: onContentReadyChanged)
+        Coordinator(onPageInfo: onPageInfo, onChapterEnd: onChapterEnd, onContentReadyChanged: onContentReadyChanged, onWritingModeDetected: onWritingModeDetected)
     }
 
     func makeNSView(context: Context) -> WKWebView {
@@ -101,6 +102,7 @@ struct EPUBWebView: NSViewRepresentable {
         context.coordinator.onPageInfo = onPageInfo
         context.coordinator.onChapterEnd = onChapterEnd
         context.coordinator.onContentReadyChanged = onContentReadyChanged
+        context.coordinator.onWritingModeDetected = onWritingModeDetected
         context.coordinator.contentBaseURL = contentBaseURL
         context.coordinator.controller = controller
 
@@ -161,13 +163,15 @@ struct EPUBWebView: NSViewRepresentable {
         var onPageInfo: ((Int, Int) -> Void)?
         var onChapterEnd: ((ChapterEdge) -> Void)?
         var onContentReadyChanged: ((Bool) -> Void)?
+        var onWritingModeDetected: ((Bool) -> Void)?
         var theme: ReaderTheme = .light
         var fontSize: Int = 18
 
-        init(onPageInfo: ((Int, Int) -> Void)?, onChapterEnd: ((ChapterEdge) -> Void)?, onContentReadyChanged: ((Bool) -> Void)?) {
+        init(onPageInfo: ((Int, Int) -> Void)?, onChapterEnd: ((ChapterEdge) -> Void)?, onContentReadyChanged: ((Bool) -> Void)?, onWritingModeDetected: ((Bool) -> Void)?) {
             self.onPageInfo = onPageInfo
             self.onChapterEnd = onChapterEnd
             self.onContentReadyChanged = onContentReadyChanged
+            self.onWritingModeDetected = onWritingModeDetected
         }
 
         /// Disable native scroll indicators on all NSScrollView instances inside
@@ -238,6 +242,9 @@ struct EPUBWebView: NSViewRepresentable {
                         onContentReadyChanged?(false)
                     } else if action == "contentReady" {
                         onContentReadyChanged?(true)
+                    } else if action == "writingMode" {
+                        let isVertical = dict["isVertical"] as? Bool ?? false
+                        onWritingModeDetected?(isVertical)
                     }
                 }
             }
