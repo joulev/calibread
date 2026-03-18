@@ -7,33 +7,34 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A10001 /* CalibreReadApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001; };
-		A10002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10002; };
-		A10003 /* CalibreBook.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10003; };
-		A10004 /* CalibreAuthor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10004; };
-		A10005 /* CalibreSeries.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10005; };
-		A10006 /* CalibreTag.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10006; };
-		A10007 /* ReadingProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10007; };
-		A10008 /* CalibreDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10008; };
-		A10010 /* LibraryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10010; };
-		A10011 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10011; };
-		A10012 /* BookGridItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10012; };
-		A10013 /* BookListRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10013; };
-		A10014 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10014; };
-		A10015 /* BookDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10015; };
-		A10017 /* EPUBReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10017; };
-		A10018 /* PDFReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10018; };
-		A10020 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10020; };
-		A10022 /* PDFViewRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10022; };
-		A10023 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10023; };
-		A10030 /* SQLite in Frameworks */ = {isa = PBXBuildFile; productRef = D10001; };
-		A10032 /* BookWindowData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10027; };
-		A10034 /* ReaderTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10029; };
-		A10040 /* EPUBSchemeHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10040; };
-		A10041 /* FoliateWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10041; };
-		A10042 /* reader.html in Resources */ = {isa = PBXBuildFile; fileRef = B10042; };
-		A10043 /* bridge.js in Resources */ = {isa = PBXBuildFile; fileRef = B10043; };
-		A10044 /* foliate in Resources */ = {isa = PBXBuildFile; fileRef = B10044; };
+		A10001 /* CalibreReadApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10001 /* CalibreReadApp.swift */; };
+		A10002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10002 /* ContentView.swift */; };
+		A10003 /* CalibreBook.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10003 /* CalibreBook.swift */; };
+		A10004 /* CalibreAuthor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10004 /* CalibreAuthor.swift */; };
+		A10005 /* CalibreSeries.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10005 /* CalibreSeries.swift */; };
+		A10006 /* CalibreTag.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10006 /* CalibreTag.swift */; };
+		A10007 /* ReadingProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10007 /* ReadingProgress.swift */; };
+		A10008 /* CalibreDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10008 /* CalibreDatabase.swift */; };
+		A10010 /* LibraryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10010 /* LibraryManager.swift */; };
+		A10011 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10011 /* LibraryView.swift */; };
+		A10012 /* BookGridItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10012 /* BookGridItem.swift */; };
+		A10013 /* BookListRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10013 /* BookListRow.swift */; };
+		A10014 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10014 /* SidebarView.swift */; };
+		A10015 /* BookDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10015 /* BookDetailView.swift */; };
+		A10017 /* EPUBReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10017 /* EPUBReaderView.swift */; };
+		A10018 /* PDFReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10018 /* PDFReaderView.swift */; };
+		A10020 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10020 /* SettingsView.swift */; };
+		A10022 /* PDFViewRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10022 /* PDFViewRepresentable.swift */; };
+		A10023 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10023 /* Assets.xcassets */; };
+		A10030 /* SQLite in Frameworks */ = {isa = PBXBuildFile; productRef = D10001 /* SQLite */; };
+		A10032 /* BookWindowData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10027 /* BookWindowData.swift */; };
+		A10034 /* ReaderTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10029 /* ReaderTheme.swift */; };
+		A10040 /* EPUBSchemeHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10040 /* EPUBSchemeHandler.swift */; };
+		A10041 /* FoliateWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10041 /* FoliateWebView.swift */; };
+		A10042 /* reader.html in Resources */ = {isa = PBXBuildFile; fileRef = B10042 /* reader.html */; };
+		A10043 /* bridge.js in Resources */ = {isa = PBXBuildFile; fileRef = B10043 /* bridge.js */; };
+		A10044 /* foliate in Resources */ = {isa = PBXBuildFile; fileRef = B10044 /* foliate */; };
+		A10045 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = B10045 /* AppIcon.icon */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -66,6 +67,7 @@
 		B10042 /* reader.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = reader.html; sourceTree = "<group>"; };
 		B10043 /* bridge.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = bridge.js; sourceTree = "<group>"; };
 		B10044 /* foliate */ = {isa = PBXFileReference; lastKnownFileType = folder; path = foliate; sourceTree = "<group>"; };
+		B10045 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer; path = AppIcon.icon; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -95,6 +97,7 @@
 				B10025 /* CalibreRead.entitlements */,
 				B10026 /* Info.plist */,
 				B10023 /* Assets.xcassets */,
+				B10045 /* AppIcon.icon */,
 				G10002 /* Models */,
 				G10003 /* Services */,
 				G10004 /* Views */,
@@ -226,7 +229,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1540;
-				LastUpgradeCheck = 1540;
+				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 					T10001 = {
 						CreatedOnToolsVersion = 15.4;
@@ -263,6 +266,7 @@
 				A10042 /* reader.html in Resources */,
 				A10043 /* bridge.js in Resources */,
 				A10044 /* foliate in Resources */,
+				A10045 /* AppIcon.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -335,6 +339,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -358,6 +363,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -397,6 +403,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -413,6 +420,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -422,10 +430,12 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_ENTITLEMENTS = CalibreRead/CalibreRead.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -451,10 +461,12 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_ENTITLEMENTS = CalibreRead/CalibreRead.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = YES;
