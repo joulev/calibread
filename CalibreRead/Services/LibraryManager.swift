@@ -27,13 +27,12 @@ final class LibraryManager {
     var selectedAuthor: CalibreAuthor?
     var selectedTag: CalibreTag?
     var selectedSeries: CalibreSeries?
-    var sortOrder: SortOrder = .title
+    var sortOrder: SortOrder = .recent
+    var lastOpenedDates: [String: Date] = [:]
 
     enum SortOrder: String, CaseIterable, Identifiable {
-        case title = "Title"
-        case author = "Author"
-        case dateAdded = "Date Added"
-        case datePublished = "Date Published"
+        case recent = "Recent"
+        case series = "Series"
 
         var id: String { rawValue }
     }
@@ -61,18 +60,36 @@ final class LibraryManager {
         }
 
         switch sortOrder {
-        case .title:
-            if selectedSeries != nil {
-                result.sort { $0.seriesIndex < $1.seriesIndex }
-            } else {
-                result.sort { $0.sortTitle.localizedCaseInsensitiveCompare($1.sortTitle) == .orderedAscending }
+        case .recent:
+            result.sort { a, b in
+                let dateA = lastOpenedDates[a.uuid]
+                let dateB = lastOpenedDates[b.uuid]
+                switch (dateA, dateB) {
+                case let (da?, db?):
+                    return da > db
+                case (_?, nil):
+                    return true
+                case (nil, _?):
+                    return false
+                case (nil, nil):
+                    return a.sortTitle.localizedCaseInsensitiveCompare(b.sortTitle) == .orderedAscending
+                }
             }
-        case .author:
-            result.sort { $0.authorSort.localizedCaseInsensitiveCompare($1.authorSort) == .orderedAscending }
-        case .dateAdded:
-            result.sort { ($0.timestamp ?? .distantPast) > ($1.timestamp ?? .distantPast) }
-        case .datePublished:
-            result.sort { ($0.pubdate ?? .distantPast) > ($1.pubdate ?? .distantPast) }
+        case .series:
+            result.sort { a, b in
+                switch (a.series, b.series) {
+                case let (sa?, sb?):
+                    let cmp = sa.sort.localizedCaseInsensitiveCompare(sb.sort)
+                    if cmp != .orderedSame { return cmp == .orderedAscending }
+                    return a.seriesIndex < b.seriesIndex
+                case (_?, nil):
+                    return true
+                case (nil, _?):
+                    return false
+                case (nil, nil):
+                    return a.sortTitle.localizedCaseInsensitiveCompare(b.sortTitle) == .orderedAscending
+                }
+            }
         }
 
         return result

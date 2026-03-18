@@ -1,8 +1,10 @@
 import SwiftUI
+import SwiftData
 
 struct LibraryView: View {
     @Environment(LibraryManager.self) private var library
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.modelContext) private var modelContext
     @State private var selectedBook: CalibreBook?
     @State private var viewMode: ViewMode = .grid
 
@@ -74,6 +76,7 @@ struct LibraryView: View {
                 .pickerStyle(.segmented)
             }
         }
+        .onAppear { loadLastOpenedDates() }
         .inspector(isPresented: .init(
             get: { selectedBook != nil },
             set: { if !$0 { selectedBook = nil } }
@@ -90,7 +93,36 @@ struct LibraryView: View {
     private func openBook(_ book: CalibreBook) {
         guard let libraryRoot = library.libraryURL,
               let data = BookWindowData(book: book, libraryRoot: libraryRoot) else { return }
+        recordBookOpened(book)
         openWindow(value: data)
+    }
+
+    private func loadLastOpenedDates() {
+        let descriptor = FetchDescriptor<ReadingProgress>()
+        guard let entries = try? modelContext.fetch(descriptor) else { return }
+        var dates: [String: Date] = [:]
+        for entry in entries {
+            dates[entry.bookIdentifier] = entry.lastReadDate
+        }
+        library.lastOpenedDates = dates
+    }
+
+    private func recordBookOpened(_ book: CalibreBook) {
+        let bookIdValue = book.uuid
+        let descriptor = FetchDescriptor<ReadingProgress>(
+            predicate: #Predicate<ReadingProgress> { $0.bookIdentifier == bookIdValue }
+        )
+        if let existing = try? modelContext.fetch(descriptor).first {
+            existing.lastReadDate = Date()
+        } else {
+            let progress = ReadingProgress(
+                bookIdentifier: book.uuid,
+                format: book.preferredFormat?.format ?? "UNKNOWN"
+            )
+            modelContext.insert(progress)
+        }
+        try? modelContext.save()
+        library.lastOpenedDates[book.uuid] = Date()
     }
 
     private var navigationTitle: String {
