@@ -1,13 +1,25 @@
 import SwiftUI
 import SwiftData
 
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        NotificationCenter.default.post(name: .showLibraryWindow, object: nil)
+        return true
+    }
+}
+
+extension Notification.Name {
+    static let showLibraryWindow = Notification.Name("showLibraryWindow")
+}
+
 @main
 struct CalibreReadApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var library = LibraryManager()
 
     var body: some Scene {
-        // Main library window
-        WindowGroup {
+        // Main library window (single instance)
+        Window("Calibread", id: "library") {
             ContentView()
                 .environment(library)
                 .onAppear {
@@ -69,34 +81,40 @@ private struct BookReaderWindow: View {
     let data: BookWindowData
     let libraryRoot: URL?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        if let libraryRoot {
-            let fileURL = data.fileURL(libraryRoot: libraryRoot)
-            switch data.formatType {
-            case "EPUB":
-                EPUBReaderView(
-                    bookURL: fileURL,
-                    libraryRoot: libraryRoot,
-                    bookTitle: data.title,
-                    bookId: data.uuid,
-                    onClose: { dismiss() }
-                )
-            case "PDF":
-                PDFReaderView(url: fileURL, bookTitle: data.title)
-            default:
-                Text("Unsupported format: \(data.formatType)")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+        Group {
+            if let libraryRoot {
+                let fileURL = data.fileURL(libraryRoot: libraryRoot)
+                switch data.formatType {
+                case "EPUB":
+                    EPUBReaderView(
+                        bookURL: fileURL,
+                        libraryRoot: libraryRoot,
+                        bookTitle: data.title,
+                        bookId: data.uuid,
+                        onClose: { dismiss() }
+                    )
+                case "PDF":
+                    PDFReaderView(url: fileURL, bookTitle: data.title)
+                default:
+                    Text("Unsupported format: \(data.formatType)")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            } else {
+                VStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.largeTitle)
+                        .foregroundStyle(.secondary)
+                    Text("No library is open. Open a library first.")
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-        } else {
-            VStack(spacing: 12) {
-                Image(systemName: "exclamationmark.triangle")
-                    .font(.largeTitle)
-                    .foregroundStyle(.secondary)
-                Text("No library is open. Open a library first.")
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showLibraryWindow)) { _ in
+            openWindow(id: "library")
         }
     }
 }
