@@ -151,6 +151,9 @@ struct FoliateWebView: NSViewRepresentable {
 
         controller.webView = webView
 
+        context.coordinator.lastCFI = lastCFI
+        context.coordinator.lastFraction = lastFraction
+
         if context.coordinator.theme != theme || context.coordinator.fontSize != fontSize {
             context.coordinator.theme = theme
             context.coordinator.fontSize = fontSize
