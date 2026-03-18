@@ -15,18 +15,11 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
         }
     }
 
+    /// CSS injected into foliate-js content iframes via `renderer.setStyles()`.
+    /// Only typography and colors — foliate-js manages layout, columns, and overflow.
     func css(fontSize: Int) -> String {
         let (bg, fg, linkColor) = colors
         return """
-        html {
-            overflow: hidden !important;
-            height: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-        ::-webkit-scrollbar {
-            display: none !important;
-        }
         body {
             font-family: 'Iowan Old Style', 'Palatino', 'Georgia', 'Hiragino Mincho ProN', 'YuMincho', serif !important;
             font-size: \(fontSize)px !important;
@@ -37,9 +30,6 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
             -webkit-font-smoothing: antialiased !important;
             background-color: \(bg) !important;
             color: \(fg);
-            margin: 0 !important;
-            box-sizing: border-box !important;
-            column-fill: auto !important;
             text-align: justify !important;
             -webkit-hyphens: auto !important;
             hyphens: auto !important;
@@ -55,16 +45,16 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
             margin-right: auto !important;
             break-inside: avoid !important;\(self != .dark ? "\n            mix-blend-mode: multiply !important;" : "")
         }
-        p {
+        p, li, blockquote, dd {
             orphans: 2 !important;
             widows: 2 !important;
+            hanging-punctuation: allow-end last;
         }
         h1, h2, h3, h4, h5, h6 {
             line-height: 1.3 !important;
             margin-top: 1.2em !important;
             margin-bottom: 0.4em !important;
             break-after: avoid !important;
-            text-align: left !important;
             text-indent: 0 !important;
         }
         h1 { font-size: 1.6em !important; }
@@ -75,10 +65,10 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
             text-decoration: none !important;
         }
         blockquote {
-            border-left: 3px solid \(fg) !important;
+            border-inline-start: 3px solid \(fg) !important;
             opacity: 0.85 !important;
             margin: 0.8em 0 0.8em 0.5em !important;
-            padding-left: 1em !important;
+            padding-inline-start: 1em !important;
             break-inside: avoid !important;
         }
         pre, code {
@@ -86,7 +76,7 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
             font-size: 0.85em !important;
         }
         pre {
-            overflow-x: auto !important;
+            white-space: pre-wrap !important;
             padding: 1em !important;
             border-radius: 6px !important;
             background: rgba(128,128,128,0.1) !important;

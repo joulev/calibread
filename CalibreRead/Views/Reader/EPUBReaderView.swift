@@ -10,7 +10,6 @@ private enum ReaderConstants {
     static let fontSizeStep = 2
     static let defaultFontSize = 18
     static let progressBarHeight: CGFloat = 3
-    static let paginationDebounceMs = 300
 }
 
 struct EPUBReaderView: View {
@@ -20,109 +19,94 @@ struct EPUBReaderView: View {
     let bookId: String
     var onClose: (() -> Void)?
 
-    @State private var epubService: EPUBService?
-    @State private var currentChapterIndex = 0
     @State private var showTOC = false
     @State private var showFontPanel = false
     @State private var theme: ReaderTheme = .sepia
     @State private var fontSize = ReaderConstants.defaultFontSize
-    @State private var errorMessage: String?
-    @State private var currentPage = 1
-    @State private var totalPages = 1
-    @State private var pageController = EPUBPageController()
+    @State private var pageController = FoliatePageController()
     @State private var isHoveringLeft = false
     @State private var isHoveringRight = false
-    @State private var isContentReady = false
-    @State private var frozenProgress: Double?
     @State private var isVerticalText = false
 
-    // Pagination state
-    @State private var sectionPageCounts: [Int]? = nil
-    @State private var paginationProgress = 0
-    @State private var paginationTask: Task<Void, Never>?
-    @State private var contentSize: CGSize = .zero
+    // Progress state from foliate-js relocate events
+    @State private var currentFraction: Double = 0
+    @State private var currentCFI: String?
+    @State private var currentTocLabel: String?
+    @State private var sectionPage: Int?
+    @State private var sectionTotalPages: Int?
+    @State private var currentSectionIndex: Int?
+
+    // Accurate page counts from background pagination measurement
+    @State private var allSectionPageCounts: [Int]?
+    @State private var paginationProgress: (completed: Int, total: Int)?
+
+    // Book metadata from foliate-js
+    @State private var toc: [FoliateTOCItem] = []
+    @State private var sectionFractions: [Double] = []
+    @State private var sectionGroups: [Int] = []  // maps section index → group start index
+    @State private var bookDir: String = "ltr"
+    @State private var bookReady = false
+
+    // Saved position for restoration
+    @State private var savedCFI: String?
+    @State private var savedFraction: Double?
 
     @Environment(\.modelContext) private var modelContext
 
-    // MARK: - Computed Progress
-
-    /// Total pages in the entire book (nil if pagination hasn't completed).
+    /// Total pages in the book (nil while pagination is in progress).
     private var totalBookPages: Int? {
-        sectionPageCounts?.reduce(0, +)
+        allSectionPageCounts?.reduce(0, +)
     }
 
-    /// Current global page number (nil if pagination hasn't completed).
+    /// Current global page number (nil while pagination is in progress).
     private var currentGlobalPage: Int? {
-        guard let counts = sectionPageCounts else { return nil }
-        let previousPages = counts.prefix(currentChapterIndex).reduce(0, +)
-        return previousPages + currentPage
+        guard let counts = allSectionPageCounts,
+              let sectionIdx = currentSectionIndex,
+              let page = sectionPage,
+              sectionIdx < counts.count else { return nil }
+        let pagesBefore = counts.prefix(sectionIdx).reduce(0, +)
+        return pagesBefore + page
     }
 
-    /// Overall reading progress as a fraction 0...1.
-    /// Uses actual page counts when available, falls back to chapter-weighted estimate.
-    /// Returns a frozen value during chapter transitions to avoid flashing.
-    private var overallProgress: Double {
-        if let frozen = frozenProgress { return frozen }
-        if let global = currentGlobalPage, let total = totalBookPages, total > 0 {
-            return Double(global) / Double(total)
+    /// The range of section indices in the current named chapter group.
+    private var currentGroupRange: Range<Int>? {
+        guard let sectionIdx = currentSectionIndex,
+              sectionIdx < sectionGroups.count else { return nil }
+        let groupStart = sectionGroups[sectionIdx]
+        // Find end: next section whose group start differs
+        var groupEnd = sectionIdx + 1
+        while groupEnd < sectionGroups.count && sectionGroups[groupEnd] == groupStart {
+            groupEnd += 1
         }
-        // Fallback: equal-weight chapters
-        guard let service = epubService, !service.chapters.isEmpty else { return 0 }
-        let chapterFraction = totalPages > 1 ? Double(currentPage - 1) / Double(totalPages - 1) : 0
-        return (Double(currentChapterIndex) + chapterFraction) / Double(service.chapters.count)
-    }
-
-    /// Title of the current section. Walks backward through spine chapters to
-    /// find the most recent one with a TOC entry. Falls back to "Unnamed Chapter".
-    private var currentChapterTitle: String {
-        guard let service = epubService else { return "Unnamed Chapter" }
-        for i in stride(from: currentChapterIndex, through: 0, by: -1) {
-            if let tocEntry = HrefMatcher.findTOCEntry(for: service.chapters[i].href, in: service.tableOfContents) {
-                return tocEntry.title
-            }
-        }
-        return "Unnamed Chapter"
-    }
-
-    /// The range of spine indices that form the current "named group":
-    /// the nearest predecessor with a TOC entry through all subsequent unnamed chapters.
-    private var currentChapterGroupRange: Range<Int> {
-        guard let service = epubService else { return currentChapterIndex..<(currentChapterIndex + 1) }
-
-        // Walk backward to find the start of the group (nearest named chapter)
-        var groupStart = currentChapterIndex
-        for i in stride(from: currentChapterIndex, through: 0, by: -1) {
-            if HrefMatcher.findTOCEntry(for: service.chapters[i].href, in: service.tableOfContents) != nil {
-                groupStart = i
-                break
-            }
-            if i == 0 { groupStart = 0 }
-        }
-
-        // Walk forward to find the end of the group (next named chapter or end of book)
-        var groupEnd = currentChapterIndex + 1
-        for i in (currentChapterIndex + 1)..<service.chapters.count {
-            if HrefMatcher.findTOCEntry(for: service.chapters[i].href, in: service.tableOfContents) != nil {
-                break
-            }
-            groupEnd = i + 1
-        }
-
         return groupStart..<groupEnd
     }
 
     /// Total pages across the current named chapter group.
-    private var groupTotalPages: Int {
-        guard let counts = sectionPageCounts else { return totalPages }
-        return counts[currentChapterGroupRange].reduce(0, +)
+    private var groupTotalPages: Int? {
+        guard let range = currentGroupRange,
+              let counts = allSectionPageCounts else { return nil }
+        return counts[range].reduce(0, +)
     }
 
     /// Current page within the current named chapter group.
-    private var groupCurrentPage: Int {
-        guard let counts = sectionPageCounts else { return currentPage }
-        let range = currentChapterGroupRange
-        let pagesBeforeCurrent = counts[range.lowerBound..<currentChapterIndex].reduce(0, +)
-        return pagesBeforeCurrent + currentPage
+    private var groupCurrentPage: Int? {
+        guard let range = currentGroupRange,
+              let sectionIdx = currentSectionIndex,
+              let page = sectionPage,
+              let counts = allSectionPageCounts else { return nil }
+        let pagesBefore = counts[range.lowerBound..<sectionIdx].reduce(0, +)
+        return pagesBefore + page
+    }
+
+    /// Section fractions filtered to only show dividers at named chapter group boundaries.
+    private var namedGroupDividerFractions: [Double] {
+        guard !sectionGroups.isEmpty else { return sectionFractions }
+        return sectionFractions.enumerated().compactMap { i, frac in
+            // A divider appears at section i if it starts a new group
+            // (i.e. sectionGroups[i] == i, meaning it's a named section)
+            guard i < sectionGroups.count else { return nil as Double? }
+            return sectionGroups[i] == i ? frac : nil
+        }
     }
 
     var body: some View {
@@ -130,13 +114,8 @@ struct EPUBReaderView: View {
             theme.swiftUIBackground
                 .ignoresSafeArea()
 
-            if let service = epubService, !service.chapters.isEmpty {
-                readerContent(service: service)
-            } else if let error = errorMessage {
-                errorView(error)
-            } else {
-                ProgressView("Loading...")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if bookReady || savedCFI != nil || savedFraction != nil || true {
+                readerContent()
             }
         }
         .navigationTitle(bookTitle)
@@ -149,15 +128,7 @@ struct EPUBReaderView: View {
                     Label("Contents", systemImage: "list.bullet")
                 }
                 .popover(isPresented: $showTOC, arrowEdge: .bottom) {
-                    if let service = epubService {
-                        TableOfContentsView(
-                            chapters: service.tableOfContents,
-                            currentChapterHref: service.chapters[currentChapterIndex].href
-                        ) { tocChapter in
-                            navigateToTOCEntry(tocChapter)
-                            showTOC = false
-                        }
-                    }
+                    tocView()
                 }
 
                 Button { showFontPanel.toggle() } label: {
@@ -168,111 +139,77 @@ struct EPUBReaderView: View {
                 }
             }
         }
-        .onAppear(perform: loadEPUB)
-        .onDisappear {
-            saveProgress()
-            paginationTask?.cancel()
-        }
+        .onAppear(perform: restoreProgress)
+        .onDisappear(perform: saveProgress)
         .onKeyPress(.leftArrow) {
-            guard isContentReady else { return .handled }
-            // vertical-rl: left = next page (reading progresses right-to-left)
-            if isVerticalText { pageController.nextPage() } else { pageController.previousPage() }
+            pageController.goLeft()
             return .handled
         }
         .onKeyPress(.rightArrow) {
-            guard isContentReady else { return .handled }
-            // vertical-rl: right = previous page
-            if isVerticalText { pageController.previousPage() } else { pageController.nextPage() }
+            pageController.goRight()
             return .handled
         }
         .onKeyPress(.space) {
-            guard isContentReady else { return .handled }
-            pageController.nextPage()
+            pageController.next()
             return .handled
         }
         .onKeyPress(.escape) {
             onClose?()
             return .handled
         }
-        .onChange(of: fontSize) { _, _ in
-            startPagination()
-        }
-        .onChange(of: theme) { _, _ in
-            startPagination()
-        }
-        .onChange(of: contentSize) { _, _ in
-            startPagination()
-        }
     }
 
     // MARK: - Reader Content
 
     @ViewBuilder
-    private func readerContent(service: EPUBService) -> some View {
+    private func readerContent() -> some View {
         VStack(spacing: 0) {
-            // Main content area with side navigation arrows
             HStack(spacing: 0) {
                 navigationArrow(isLeft: true)
 
-                GeometryReader { geo in
-                    EPUBWebView(
-                        fileURL: service.chapters[currentChapterIndex].fileURL,
-                        contentBaseURL: service.contentRootURL,
-                        theme: theme,
-                        fontSize: fontSize,
-                        controller: pageController,
-                        onPageInfo: { page, total in
-                            currentPage = page
-                            totalPages = total
-                            frozenProgress = nil
-                            // Keep paginated counts in sync with the live WKWebView
-                            if var counts = sectionPageCounts, currentChapterIndex < counts.count {
-                                counts[currentChapterIndex] = total
-                                sectionPageCounts = counts
-                            }
-                        },
-                        onChapterEnd: { edge in
-                            frozenProgress = overallProgress
-                            isContentReady = false
-                            switch edge {
-                            case .next:
-                                if currentChapterIndex < service.chapters.count - 1 {
-                                    currentChapterIndex += 1
-                                    currentPage = 1
-                                    saveProgress()
-                                }
-                            case .previous:
-                                if currentChapterIndex > 0 {
-                                    currentChapterIndex -= 1
-                                    currentPage = 1
-                                    pageController.pendingFraction = 1.0
-                                    saveProgress()
-                                }
-                            }
-                        },
-                        onContentReadyChanged: { ready in
-                            isContentReady = ready
-                        },
-                        onWritingModeDetected: { vertical in
-                            isVerticalText = vertical
-                        }
-                    )
-                    .onAppear {
-                        if geo.size.width > 0, geo.size.height > 0 {
-                            contentSize = geo.size
-                        }
+                FoliateWebView(
+                    bookURL: bookURL,
+                    theme: theme,
+                    fontSize: fontSize,
+                    controller: pageController,
+                    lastCFI: savedCFI,
+                    lastFraction: savedFraction,
+                    onRelocate: { info in
+                        currentFraction = info.fraction
+                        currentCFI = info.cfi
+                        currentTocLabel = info.tocLabel
+                        sectionPage = info.sectionPage
+                        sectionTotalPages = info.sectionPages
+                        currentSectionIndex = info.sectionIndex
+                    },
+                    onBookReady: { tocItems, fractions, groups, dir in
+                        toc = tocItems
+                        sectionFractions = fractions
+                        sectionGroups = groups
+                        bookDir = dir
+                        bookReady = true
+                    },
+                    onWritingModeDetected: { vertical in
+                        isVerticalText = vertical
+                    },
+                    onKeydown: { key in
+                        if key == "ArrowLeft" { pageController.goLeft() }
+                        else if key == "ArrowRight" { pageController.goRight() }
+                        else if key == " " { pageController.next() }
+                    },
+                    onPaginationComplete: { counts in
+                        allSectionPageCounts = counts
+                        if counts != nil { paginationProgress = nil }
+                    },
+                    onPaginationProgress: { completed, total in
+                        paginationProgress = (completed, total)
                     }
-                    .onChange(of: geo.size) { _, newSize in
-                        if newSize.width > 0, newSize.height > 0 {
-                            contentSize = newSize
-                        }
-                    }
-                }
+                )
 
                 navigationArrow(isLeft: false)
             }
 
-            bottomBar(service: service)
+            bottomBar()
         }
     }
 
@@ -341,26 +278,18 @@ struct EPUBReaderView: View {
     private func navigationArrow(isLeft: Bool) -> some View {
         let isHovering = isLeft ? isHoveringLeft : isHoveringRight
 
-        // For vertical-rl, left button = next (reading right-to-left)
-        let isNextButton = isVerticalText ? isLeft : !isLeft
-
         return Button {
-            guard isContentReady else { return }
-            if isNextButton {
-                pageController.nextPage()
-            } else {
-                pageController.previousPage()
-            }
+            if isLeft { pageController.goLeft() }
+            else { pageController.goRight() }
         } label: {
             Text(isLeft ? "\u{2039}" : "\u{203A}")
                 .font(.system(size: 56, weight: .ultraLight))
-                .foregroundStyle(theme.swiftUISecondary.opacity(isContentReady ? (isHovering ? 0.8 : 0.35) : 0.1))
+                .foregroundStyle(theme.swiftUISecondary.opacity(isHovering ? 0.8 : 0.35))
                 .frame(maxHeight: .infinity)
                 .frame(width: 36)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(!isContentReady)
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.15)) {
                 if isLeft {
@@ -374,38 +303,33 @@ struct EPUBReaderView: View {
 
     // MARK: - Bottom Bar
 
-    private func bottomBar(service: EPUBService) -> some View {
+    private func bottomBar() -> some View {
         VStack(spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
-                // Left: section info (hidden during content transitions)
+                // Left: current TOC section + section page progress
                 HStack(spacing: 6) {
-                    Text(currentChapterTitle)
+                    Text(currentTocLabel?.isEmpty == false ? currentTocLabel! : "Unnamed Chapter")
                         .lineLimit(1)
-
-                    if sectionPageCounts != nil {
+                    if let page = groupCurrentPage, let total = groupTotalPages {
                         Text("\u{00B7}")
                             .foregroundStyle(theme.swiftUISecondary.opacity(0.5))
-
-                        Text("\(groupCurrentPage) / \(groupTotalPages)")
+                        Text("\(page) / \(total)")
                     }
                 }
                 .font(.system(size: 11))
                 .foregroundStyle(theme.swiftUISecondary)
-                .opacity(isContentReady ? 1 : 0)
 
                 Spacer()
 
-                // Right: global page position (hidden during content transitions)
-                if let globalPage = currentGlobalPage, let totalBook = totalBookPages {
-                    Text("p. \(globalPage) / \(totalBook)")
+                // Right: overall book progress in pages
+                if let current = currentGlobalPage, let total = totalBookPages {
+                    Text("p. \(current) / \(total)")
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(theme.swiftUISecondary)
-                        .opacity(isContentReady ? 1 : 0)
-                } else {
-                    Text("Calculating\u{2026} \(service.chapters.count > 0 ? Int(round(Double(paginationProgress) / Double(service.chapters.count) * 100)) : 0)%")
+                } else if let progress = paginationProgress, progress.total > 0 {
+                    Text("Calculating\u{2026} \(Int(round(Double(progress.completed) / Double(progress.total) * 100)))%")
                         .font(.system(size: 11))
                         .foregroundStyle(theme.swiftUISecondary.opacity(0.5))
-                        .opacity(isContentReady ? 1 : 0)
                 }
             }
             .padding(.horizontal, 16)
@@ -413,7 +337,6 @@ struct EPUBReaderView: View {
             .padding(.bottom, 4)
 
             // Progress bar with section markers
-            // For vertical-rl, the bar is mirrored to fill right-to-left
             GeometryReader { geometry in
                 let barWidth = geometry.size.width
                 ZStack(alignment: .leading) {
@@ -422,113 +345,98 @@ struct EPUBReaderView: View {
 
                     Rectangle()
                         .fill(theme.swiftUISecondary.opacity(0.35))
-                        .frame(width: barWidth * overallProgress)
+                        .frame(width: barWidth * currentFraction)
 
-                    if let counts = sectionPageCounts, let total = totalBookPages, total > 0 {
-                        let dividers = namedSectionDividerOffsets(counts: counts, total: total, service: service)
-                        ForEach(0..<dividers.count, id: \.self) { i in
-                            Rectangle()
-                                .fill(theme.swiftUISecondary.opacity(0.4))
-                                .frame(width: 1.5)
-                                .offset(x: barWidth * dividers[i])
-                        }
+                    // Only show dividers at named chapter group boundaries
+                    let dividers = namedGroupDividerFractions
+                    ForEach(0..<dividers.count, id: \.self) { i in
+                        Rectangle()
+                            .fill(theme.swiftUISecondary.opacity(0.4))
+                            .frame(width: 1.5)
+                            .offset(x: barWidth * dividers[i])
                     }
                 }
-                .scaleEffect(x: isVerticalText ? -1 : 1)
+                .scaleEffect(x: (isVerticalText || bookDir == "rtl") ? -1 : 1)
             }
             .frame(height: ReaderConstants.progressBarHeight)
         }
     }
 
-    /// Compute the fractional x-offsets for section dividers on the progress bar.
-    /// Only places dividers at boundaries of named chapters (chapters with TOC entries),
-    /// so unnamed chapters are visually grouped with their named predecessor.
-    private func namedSectionDividerOffsets(counts: [Int], total: Int, service: EPUBService) -> [Double] {
-        guard total > 0, counts.count > 1 else { return [] }
-        var offsets: [Double] = []
-        var cumulative = 0
-        for i in 0..<counts.count {
-            cumulative += counts[i]
-            let nextIndex = i + 1
-            if nextIndex < counts.count,
-               HrefMatcher.findTOCEntry(for: service.chapters[nextIndex].href, in: service.tableOfContents) != nil {
-                offsets.append(Double(cumulative) / Double(total))
+    // MARK: - TOC View
+
+    private func tocView() -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Contents")
+                .font(.system(size: 15, weight: .semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+
+            Divider()
+                .opacity(0.5)
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        let count = toc.count
+                        if count > 0 {
+                            ForEach(0..<count, id: \.self) { (index: Int) in
+                                let item = toc[index]
+                                let isCurrent = item.label == currentTocLabel
+                                Button {
+                                    pageController.goTo(item.href)
+                                    showTOC = false
+                                } label: {
+                                    Text(item.label)
+                                        .font(.system(size: 14, weight: isCurrent ? .semibold : .regular))
+                                        .foregroundStyle(isCurrent ? Color.accentColor : .primary)
+                                        .lineLimit(2)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 10)
+                                        .padding(.leading, CGFloat(item.depth) * 16)
+                                        .background {
+                                            if isCurrent {
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .fill(.quaternary)
+                                                    .padding(.horizontal, 8)
+                                            }
+                                        }
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .id(index)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .onAppear {
+                    if let currentIndex = toc.firstIndex(where: { $0.label == currentTocLabel }) {
+                        proxy.scrollTo(currentIndex, anchor: .center)
+                    }
+                }
             }
         }
-        return offsets
+        .frame(width: 340, height: 500)
     }
 
-    // MARK: - Pagination
-
-    private func startPagination() {
-        guard let service = epubService,
-              contentSize.width > 0, contentSize.height > 0 else { return }
-
-        paginationTask?.cancel()
-        sectionPageCounts = nil
-        paginationProgress = 0
-
-        paginationTask = Task {
-            try? await Task.sleep(for: .milliseconds(ReaderConstants.paginationDebounceMs))
-            guard !Task.isCancelled else { return }
-
-            let paginator = EPUBPaginator(
-                chapters: service.chapters,
-                contentBaseURL: service.contentRootURL,
-                theme: theme,
-                fontSize: fontSize,
-                viewportSize: contentSize,
-                bookIdentifier: bookId
-            )
-
-            let counts = await paginator.measureAll { progress in
-                paginationProgress = progress
-            }
-
-            guard !Task.isCancelled, let counts else { return }
-            sectionPageCounts = counts
-        }
-    }
-
-    // MARK: - Actions
-
-    private func loadEPUB() {
-        do {
-            let service = try EPUBService(bookURL: bookURL, libraryRoot: libraryRoot)
-            self.epubService = service
-            restoreProgress()
-        } catch {
-            self.errorMessage = error.localizedDescription
-        }
-    }
-
-    /// Navigate to a TOC entry by matching its href against the spine chapters.
-    private func navigateToTOCEntry(_ tocChapter: EPUBService.Chapter) {
-        guard let service = epubService else { return }
-        if let spineIndex = HrefMatcher.findSpineIndex(for: tocChapter.href, in: service.chapters) {
-            frozenProgress = overallProgress
-            currentChapterIndex = spineIndex
-            currentPage = 1
-            saveProgress()
-        }
-    }
+    // MARK: - Persistence
 
     private func saveProgress() {
         let bookIdValue = bookId
         let descriptor = FetchDescriptor<ReadingProgress>(
             predicate: #Predicate<ReadingProgress> { $0.bookIdentifier == bookIdValue }
         )
-        let position = totalPages > 1 ? Double(currentPage - 1) / Double(totalPages - 1) : 0
         if let existing = try? modelContext.fetch(descriptor).first {
-            existing.chapterIndex = currentChapterIndex
-            existing.scrollPosition = position
+            existing.scrollPosition = currentFraction
+            existing.cfi = currentCFI
             existing.lastReadDate = Date()
         } else {
             let progress = ReadingProgress(
                 bookIdentifier: bookId,
                 format: "EPUB",
-                chapterIndex: currentChapterIndex,
-                scrollPosition: position
+                scrollPosition: currentFraction,
+                cfi: currentCFI
             )
             modelContext.insert(progress)
         }
@@ -541,53 +449,10 @@ struct EPUBReaderView: View {
             predicate: #Predicate<ReadingProgress> { $0.bookIdentifier == bookIdValue }
         )
         if let progress = try? modelContext.fetch(descriptor).first {
-            currentChapterIndex = progress.chapterIndex
+            savedCFI = progress.cfi
             if progress.scrollPosition > 0 {
-                pageController.pendingFraction = progress.scrollPosition
+                savedFraction = progress.scrollPosition
             }
         }
-    }
-
-    // MARK: - Error View
-
-    private func errorView(_ error: String) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Spacer()
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.largeTitle)
-                        .foregroundStyle(.yellow)
-                    Spacer()
-                }
-
-                Text("Failed to parse EPUB file")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-
-                Divider()
-
-                Text("Diagnostic Details")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                Text(error)
-                    .font(.system(.caption, design: .monospaced))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(8)
-                    .background(.quaternary)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-
-                Button("Copy to Clipboard") {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(error, forType: .string)
-                }
-                .buttonStyle(.borderedProminent)
-                .frame(maxWidth: .infinity)
-            }
-            .padding()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

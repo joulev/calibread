@@ -46,22 +46,25 @@ All books are loaded once when the library is opened. Filtering (by author/serie
 ### EPUB Reader Pipeline
 
 ```
-EPUBReaderView (state: chapter index, page, theme, font size)
-  → EPUBService (parses EPUB: tries EPUBKit, falls back to manual OPF parser)
-    → EPUBWebView (NSViewRepresentable<WKWebView>)
-      ↔ JavaScript "CalibreReader" global (bidirectional via WKScriptMessageHandler)
-        - CSS column layout for pagination
-        - nextPage()/prevPage() via translateX transforms
-        - Reports {current, total} page changes to Swift
-    → EPUBPageController (direct JS calls, used by keyboard handlers)
-    → EPUBPaginator (measures all chapters in parallel via hidden WKWebView pool)
-      → PaginationCache (JSON files in /tmp, 7-day TTL, keyed by viewport+font+theme)
+EPUBReaderView (state: fraction, CFI, theme, font size)
+  → FoliateWebView (NSViewRepresentable<WKWebView>)
+    → EPUBSchemeHandler (WKURLSchemeHandler, serves book + app resources via calibre:// scheme)
+    → bridge.js (Swift ↔ foliate-js communication layer)
+      → <foliate-view> (foliate-js custom element, handles EPUB parsing, pagination, rendering)
+        - CSS column layout via paginator.js (iframes + blob URLs per section)
+        - Native vertical-rl, RTL, and CJK support
+        - EPUB CFI-based position tracking
+        - Bisection-based visible range detection
+    → FoliatePageController (direct JS calls for navigation)
 ```
 
 **Key design decisions:**
-- `EPUBPageController` provides direct WKWebView JS access so arrow keys don't queue through `updateNSView`
-- Reading position is stored as a 0–1 fraction (robust to font/theme reflow changes)
-- `EPUBPaginator` uses 4 hidden WKWebViews in invisible windows, processing chapters in batches — start all loads simultaneously, then collect results
+- Uses [foliate-js](https://github.com/johnfactotum/foliate-js) (vendored, MIT) for all EPUB rendering
+- `FoliatePageController` provides direct WKWebView JS access so arrow keys don't queue through `updateNSView`
+- Single WKWebView per book — foliate-js manages chapter transitions internally via iframes
+- Reading position is stored as both EPUB CFI (precise) and 0–1 fraction (fallback)
+- EPUB parsing happens in JavaScript (foliate-js `epub.js`), not Swift — EPUBKit dependency removed
+- `EPUBSchemeHandler` serves the EPUB file via `calibre://book` and app resources via `calibre://app/`
 
 ### Window Management
 
@@ -73,20 +76,18 @@ EPUBReaderView (state: chapter index, page, theme, font size)
 |------|-----------|
 | Data layer | `Services/CalibreDatabase.swift`, `Services/LibraryManager.swift` |
 | Models | `Models/CalibreBook.swift`, `Models/ReadingProgress.swift`, `Models/BookWindowData.swift` |
-| EPUB reading | `Services/EPUBService.swift`, `Views/Reader/EPUBReaderView.swift`, `Utilities/WebViewRepresentable.swift` |
-| EPUB pagination | `Services/EPUBPaginator.swift` (parallel measurement + disk cache) |
+| EPUB reading | `Views/Reader/EPUBReaderView.swift`, `Utilities/FoliateWebView.swift`, `Utilities/EPUBSchemeHandler.swift` |
+| EPUB JS engine | `Resources/foliate/` (vendored foliate-js), `Resources/bridge.js`, `Resources/reader.html` |
 | PDF reading | `Views/Reader/PDFReaderView.swift`, `Utilities/PDFViewRepresentable.swift` |
 | Library UI | `Views/Library/LibraryView.swift`, `Views/Library/SidebarView.swift` |
-| Reader themes/CSS | `Utilities/ReaderTheme.swift`, `Resources/reader.css` |
-| Reader JS engine | `Resources/reader.js` (CalibreReader pagination object, injected into WKWebView) |
-| Shared utilities | `Utilities/HrefMatcher.swift` (EPUB href comparison for TOC/spine matching) |
+| Reader themes | `Utilities/ReaderTheme.swift` |
 
 ## Key Dependencies (SPM)
 
 | Package | Version | Purpose |
 |---------|---------|---------|
 | [SQLite.swift](https://github.com/stephencelis/SQLite.swift) | 0.15.3+ | Read-only access to Calibre's `metadata.db` |
-| [EPUBKit](https://github.com/witekbobrowski/EPUBKit) | 0.5.0+ | EPUB parsing (requires Swift tools 6.0) |
+| [foliate-js](https://github.com/johnfactotum/foliate-js) | vendored (MIT) | EPUB rendering, parsing, pagination (JS, bundled in Resources) |
 
 ## How the Calibre Integration Works
 
@@ -124,21 +125,17 @@ These caused real build failures and are worth knowing:
 
 3. **`.accentColor` is not a `ShapeStyle`**: Use `Color.accentColor` instead of `.accentColor` with `.foregroundStyle()`.
 
-4. **EPUBKit 0.5.0 API changes**: `document.spine`, `document.manifest`, `document.tableOfContents` are **non-optional**. `document.contentDirectory` is a `URL`, not a `String`. `item.label` on TOC entries is non-optional.
+4. **Swift 6 strict concurrency**: `@objc` methods accessing main-actor-isolated properties need the class marked `@MainActor`.
 
-5. **Swift 6 strict concurrency**: `@objc` methods accessing main-actor-isolated properties need the class marked `@MainActor`.
-
-6. **`#Predicate` needs explicit type**: Use `#Predicate<ReadingProgress> { ... }` not `#Predicate { ... }`. Capture variables in locals before using in predicates.
-
-7. **`withTaskGroup` + `@MainActor` closures**: `group.addTask { @MainActor in ... }` is rejected by Swift 6's region-based isolation checker. Instead of TaskGroup with @MainActor closures, use a batched approach: start all work items (non-blocking), then await results sequentially. For WKWebView pools, split into `startLoad()` (fire-and-forget) + `awaitMeasurement()` (suspend until done).
+5. **`#Predicate` needs explicit type**: Use `#Predicate<ReadingProgress> { ... }` not `#Predicate { ... }`. Capture variables in locals before using in predicates.
 
 ## What's Not Yet Implemented
 
 - [ ] Liquid glass UI (macOS 26 design language) — toolbar and chrome updates needed
 - [ ] Bookmarks UI (model exists: `BookmarkEntry`, but no UI to create/view them)
 - [ ] "Continue Reading" section on home screen
-- [ ] Keyboard shortcuts for reader (arrow keys, space for page down)
 - [ ] Multi-window support (open books in separate windows)
 - [ ] Full-screen reading mode
-- [ ] Annotations and highlights
+- [ ] Annotations and highlights (foliate-js overlay system available but not wired to UI)
+- [ ] In-book search (foliate-js search API available but not wired to UI)
 - [ ] App icon

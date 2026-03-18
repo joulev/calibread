@@ -15,7 +15,6 @@
 		A10006 /* CalibreTag.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10006; };
 		A10007 /* ReadingProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10007; };
 		A10008 /* CalibreDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10008; };
-		A10009 /* EPUBService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10009; };
 		A10010 /* LibraryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10010; };
 		A10011 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10011; };
 		A10012 /* BookGridItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10012; };
@@ -24,19 +23,17 @@
 		A10015 /* BookDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10015; };
 		A10017 /* EPUBReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10017; };
 		A10018 /* PDFReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10018; };
-		A10019 /* TableOfContentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10019; };
 		A10020 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10020; };
-		A10021 /* WebViewRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10021; };
 		A10022 /* PDFViewRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10022; };
 		A10023 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B10023; };
-		A10024 /* reader.css in Resources */ = {isa = PBXBuildFile; fileRef = B10024; };
 		A10030 /* SQLite in Frameworks */ = {isa = PBXBuildFile; productRef = D10001; };
-		A10031 /* EPUBKit in Frameworks */ = {isa = PBXBuildFile; productRef = D10002; };
 		A10032 /* BookWindowData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10027; };
-		A10033 /* EPUBPaginator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10028; };
 		A10034 /* ReaderTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10029; };
-		A10035 /* HrefMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10030; };
-		A10036 /* reader.js in Resources */ = {isa = PBXBuildFile; fileRef = B10031; };
+		A10040 /* EPUBSchemeHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10040; };
+		A10041 /* FoliateWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10041; };
+		A10042 /* reader.html in Resources */ = {isa = PBXBuildFile; fileRef = B10042; };
+		A10043 /* bridge.js in Resources */ = {isa = PBXBuildFile; fileRef = B10043; };
+		A10044 /* foliate in Resources */ = {isa = PBXBuildFile; fileRef = B10044; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -49,7 +46,6 @@
 		B10006 /* CalibreTag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibreTag.swift; sourceTree = "<group>"; };
 		B10007 /* ReadingProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingProgress.swift; sourceTree = "<group>"; };
 		B10008 /* CalibreDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibreDatabase.swift; sourceTree = "<group>"; };
-		B10009 /* EPUBService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPUBService.swift; sourceTree = "<group>"; };
 		B10010 /* LibraryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryManager.swift; sourceTree = "<group>"; };
 		B10011 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		B10012 /* BookGridItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookGridItem.swift; sourceTree = "<group>"; };
@@ -58,19 +54,18 @@
 		B10015 /* BookDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookDetailView.swift; sourceTree = "<group>"; };
 		B10017 /* EPUBReaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPUBReaderView.swift; sourceTree = "<group>"; };
 		B10018 /* PDFReaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFReaderView.swift; sourceTree = "<group>"; };
-		B10019 /* TableOfContentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TableOfContentsView.swift; sourceTree = "<group>"; };
 		B10020 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		B10021 /* WebViewRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewRepresentable.swift; sourceTree = "<group>"; };
 		B10022 /* PDFViewRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFViewRepresentable.swift; sourceTree = "<group>"; };
 		B10023 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		B10024 /* reader.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = reader.css; sourceTree = "<group>"; };
 		B10025 /* CalibreRead.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CalibreRead.entitlements; sourceTree = "<group>"; };
 		B10026 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B10027 /* BookWindowData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookWindowData.swift; sourceTree = "<group>"; };
-		B10028 /* EPUBPaginator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPUBPaginator.swift; sourceTree = "<group>"; };
 		B10029 /* ReaderTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderTheme.swift; sourceTree = "<group>"; };
-		B10030 /* HrefMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HrefMatcher.swift; sourceTree = "<group>"; };
-		B10031 /* reader.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = reader.js; sourceTree = "<group>"; };
+		B10040 /* EPUBSchemeHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPUBSchemeHandler.swift; sourceTree = "<group>"; };
+		B10041 /* FoliateWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoliateWebView.swift; sourceTree = "<group>"; };
+		B10042 /* reader.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = reader.html; sourceTree = "<group>"; };
+		B10043 /* bridge.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = bridge.js; sourceTree = "<group>"; };
+		B10044 /* foliate */ = {isa = PBXFileReference; lastKnownFileType = folder; path = foliate; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -79,7 +74,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10030 /* SQLite in Frameworks */,
-				A10031 /* EPUBKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -127,9 +121,7 @@
 			isa = PBXGroup;
 			children = (
 				B10008 /* CalibreDatabase.swift */,
-				B10009 /* EPUBService.swift */,
 				B10010 /* LibraryManager.swift */,
-				B10028 /* EPUBPaginator.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -162,7 +154,6 @@
 			children = (
 				B10017 /* EPUBReaderView.swift */,
 				B10018 /* PDFReaderView.swift */,
-				B10019 /* TableOfContentsView.swift */,
 			);
 			path = Reader;
 			sourceTree = "<group>";
@@ -178,10 +169,10 @@
 		G10008 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
-				B10021 /* WebViewRepresentable.swift */,
 				B10022 /* PDFViewRepresentable.swift */,
 				B10029 /* ReaderTheme.swift */,
-				B10030 /* HrefMatcher.swift */,
+				B10040 /* EPUBSchemeHandler.swift */,
+				B10041 /* FoliateWebView.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -189,8 +180,9 @@
 		G10009 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				B10024 /* reader.css */,
-				B10031 /* reader.js */,
+				B10042 /* reader.html */,
+				B10043 /* bridge.js */,
+				B10044 /* foliate */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -221,7 +213,6 @@
 			name = CalibreRead;
 			packageProductDependencies = (
 				D10001 /* SQLite */,
-				D10002 /* EPUBKit */,
 			);
 			productName = CalibreRead;
 			productReference = B10000 /* CalibreRead.app */;
@@ -253,7 +244,6 @@
 			mainGroup = G10000;
 			packageReferences = (
 				E10001 /* XCRemoteSwiftPackageReference "SQLite.swift" */,
-				E10002 /* XCRemoteSwiftPackageReference "EPUBKit" */,
 			);
 			productRefGroup = G10099 /* Products */;
 			projectDirPath = "";
@@ -270,8 +260,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10023 /* Assets.xcassets in Resources */,
-				A10024 /* reader.css in Resources */,
-				A10036 /* reader.js in Resources */,
+				A10042 /* reader.html in Resources */,
+				A10043 /* bridge.js in Resources */,
+				A10044 /* foliate in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -290,7 +281,6 @@
 				A10006 /* CalibreTag.swift in Sources */,
 				A10007 /* ReadingProgress.swift in Sources */,
 				A10008 /* CalibreDatabase.swift in Sources */,
-				A10009 /* EPUBService.swift in Sources */,
 				A10010 /* LibraryManager.swift in Sources */,
 				A10011 /* LibraryView.swift in Sources */,
 				A10012 /* BookGridItem.swift in Sources */,
@@ -299,14 +289,12 @@
 				A10015 /* BookDetailView.swift in Sources */,
 				A10017 /* EPUBReaderView.swift in Sources */,
 				A10018 /* PDFReaderView.swift in Sources */,
-				A10019 /* TableOfContentsView.swift in Sources */,
 				A10020 /* SettingsView.swift in Sources */,
-				A10021 /* WebViewRepresentable.swift in Sources */,
 				A10022 /* PDFViewRepresentable.swift in Sources */,
 				A10032 /* BookWindowData.swift in Sources */,
-				A10033 /* EPUBPaginator.swift in Sources */,
 				A10034 /* ReaderTheme.swift in Sources */,
-				A10035 /* HrefMatcher.swift in Sources */,
+				A10040 /* EPUBSchemeHandler.swift in Sources */,
+				A10041 /* FoliateWebView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -519,14 +507,6 @@
 				minimumVersion = 0.15.3;
 			};
 		};
-		E10002 /* XCRemoteSwiftPackageReference "EPUBKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/witekbobrowski/EPUBKit.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.5.0;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -534,11 +514,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E10001 /* XCRemoteSwiftPackageReference "SQLite.swift" */;
 			productName = SQLite;
-		};
-		D10002 /* EPUBKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E10002 /* XCRemoteSwiftPackageReference "EPUBKit" */;
-			productName = EPUBKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

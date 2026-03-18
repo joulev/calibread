@@ -9,14 +9,17 @@ final class ReadingProgress {
     var scrollPosition: Double
     var lastReadDate: Date
     var isFinished: Bool
+    /// EPUB CFI string for precise position restoration (used by foliate-js renderer).
+    var cfi: String?
 
-    init(bookIdentifier: String, format: String, chapterIndex: Int = 0, scrollPosition: Double = 0) {
+    init(bookIdentifier: String, format: String, chapterIndex: Int = 0, scrollPosition: Double = 0, cfi: String? = nil) {
         self.bookIdentifier = bookIdentifier
         self.format = format
         self.chapterIndex = chapterIndex
         self.scrollPosition = scrollPosition
         self.lastReadDate = Date()
         self.isFinished = false
+        self.cfi = cfi
     }
 }
 
