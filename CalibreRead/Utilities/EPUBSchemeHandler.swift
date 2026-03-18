@@ -7,11 +7,14 @@ import WebKit
 /// - `calibre://book` → serves the EPUB file bytes as `application/epub+zip`
 @MainActor
 final class EPUBSchemeHandler: NSObject, WKURLSchemeHandler {
+    static let urlScheme = "calibre"
+    static let messageHandlerName = "pageHandler"
+
     var bookURL: URL?
 
     func webView(_ webView: WKWebView, start urlSchemeTask: any WKURLSchemeTask) {
         guard let url = urlSchemeTask.request.url,
-              url.scheme == "calibre" else {
+              url.scheme == Self.urlScheme else {
             urlSchemeTask.didFailWithError(URLError(.badURL))
             return
         }

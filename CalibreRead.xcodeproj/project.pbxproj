@@ -31,6 +31,11 @@
 		A10034 /* ReaderTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10029 /* ReaderTheme.swift */; };
 		A10040 /* EPUBSchemeHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10040 /* EPUBSchemeHandler.swift */; };
 		A10041 /* FoliateWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10041 /* FoliateWebView.swift */; };
+		A10050 /* CoverImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10050 /* CoverImageView.swift */; };
+		A10051 /* FormatBadgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10051 /* FormatBadgeView.swift */; };
+		A10052 /* EPUBFontControlsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10052 /* EPUBFontControlsPanel.swift */; };
+		A10053 /* EPUBBottomBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10053 /* EPUBBottomBar.swift */; };
+		A10054 /* EPUBTOCView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10054 /* EPUBTOCView.swift */; };
 		A10042 /* reader.html in Resources */ = {isa = PBXBuildFile; fileRef = B10042 /* reader.html */; };
 		A10043 /* bridge.js in Resources */ = {isa = PBXBuildFile; fileRef = B10043 /* bridge.js */; };
 		A10044 /* foliate in Resources */ = {isa = PBXBuildFile; fileRef = B10044 /* foliate */; };
@@ -68,6 +73,11 @@
 		B10043 /* bridge.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = bridge.js; sourceTree = "<group>"; };
 		B10044 /* foliate */ = {isa = PBXFileReference; lastKnownFileType = folder; path = foliate; sourceTree = "<group>"; };
 		B10045 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer; path = AppIcon.icon; sourceTree = "<group>"; };
+		B10050 /* CoverImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoverImageView.swift; sourceTree = "<group>"; };
+		B10051 /* FormatBadgeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormatBadgeView.swift; sourceTree = "<group>"; };
+		B10052 /* EPUBFontControlsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPUBFontControlsPanel.swift; sourceTree = "<group>"; };
+		B10053 /* EPUBBottomBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPUBBottomBar.swift; sourceTree = "<group>"; };
+		B10054 /* EPUBTOCView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPUBTOCView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -148,6 +158,8 @@
 				B10013 /* BookListRow.swift */,
 				B10014 /* SidebarView.swift */,
 				B10015 /* BookDetailView.swift */,
+				B10050 /* CoverImageView.swift */,
+				B10051 /* FormatBadgeView.swift */,
 			);
 			path = Library;
 			sourceTree = "<group>";
@@ -157,6 +169,9 @@
 			children = (
 				B10017 /* EPUBReaderView.swift */,
 				B10018 /* PDFReaderView.swift */,
+				B10052 /* EPUBFontControlsPanel.swift */,
+				B10053 /* EPUBBottomBar.swift */,
+				B10054 /* EPUBTOCView.swift */,
 			);
 			path = Reader;
 			sourceTree = "<group>";
@@ -299,6 +314,11 @@
 				A10034 /* ReaderTheme.swift in Sources */,
 				A10040 /* EPUBSchemeHandler.swift in Sources */,
 				A10041 /* FoliateWebView.swift in Sources */,
+				A10050 /* CoverImageView.swift in Sources */,
+				A10051 /* FormatBadgeView.swift in Sources */,
+				A10052 /* EPUBFontControlsPanel.swift in Sources */,
+				A10053 /* EPUBBottomBar.swift in Sources */,
+				A10054 /* EPUBTOCView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

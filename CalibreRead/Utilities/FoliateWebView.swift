@@ -20,6 +20,18 @@ struct FoliateTOCItem: Identifiable {
     let depth: Int
 }
 
+/// Message types received from bridge.js via webkit.messageHandlers.
+enum BridgeMessageType: String {
+    case relocate
+    case bookReady
+    case load
+    case keydown
+    case paginationStarted
+    case paginationComplete
+    case paginationProgress
+    case error
+}
+
 /// Controller providing direct JS access to foliate-js for snappy navigation.
 @MainActor
 @Observable
@@ -105,10 +117,10 @@ struct FoliateWebView: NSViewRepresentable {
         schemeHandler.bookURL = bookURL
 
         let config = WKWebViewConfiguration()
-        config.setURLSchemeHandler(schemeHandler, forURLScheme: "calibre")
+        config.setURLSchemeHandler(schemeHandler, forURLScheme: EPUBSchemeHandler.urlScheme)
 
         let userController = WKUserContentController()
-        userController.add(context.coordinator, name: "pageHandler")
+        userController.add(context.coordinator, name: EPUBSchemeHandler.messageHandlerName)
         config.userContentController = userController
 
         let webView = WKWebView(frame: .zero, configuration: config)
@@ -124,8 +136,7 @@ struct FoliateWebView: NSViewRepresentable {
 
         controller.webView = webView
 
-        // Load the reader shell
-        webView.load(URLRequest(url: URL(string: "calibre://app/reader.html")!))
+        webView.load(URLRequest(url: URL(string: "\(EPUBSchemeHandler.urlScheme)://app/reader.html")!))
 
         return webView
     }
@@ -209,9 +220,6 @@ struct FoliateWebView: NSViewRepresentable {
             guard !bookOpened else { return }
             bookOpened = true
 
-            // Open the book — bridge.js will post "bookReady" when done,
-            // at which point we apply theme and restore position.
-            // Wait for modules to be ready (CalibreBridge defined on window)
             let openJS = """
             // Poll until CalibreBridge is available (modules load async)
             while (!window.CalibreBridge) await new Promise(r => setTimeout(r, 10));
@@ -234,7 +242,6 @@ struct FoliateWebView: NSViewRepresentable {
             webView?.evaluateJavaScript("CalibreBridge.setStyles(`\(escapedCSS)`)", completionHandler: nil)
             webView?.evaluateJavaScript("CalibreBridge.setLayout('5%', 720, 1)", completionHandler: nil)
 
-            // Restore reading position
             if let cfi = lastCFI, !cfi.isEmpty {
                 let escaped = cfi.replacingOccurrences(of: "'", with: "\\'")
                 webView?.evaluateJavaScript("CalibreBridge.init('\(escaped)')", completionHandler: nil)
@@ -244,71 +251,87 @@ struct FoliateWebView: NSViewRepresentable {
                 webView?.evaluateJavaScript("CalibreBridge.init(null)", completionHandler: nil)
             }
 
-            // Start background pagination measurement
             webView?.evaluateJavaScript("CalibreBridge.startPagination()", completionHandler: nil)
         }
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-            guard message.name == "pageHandler",
+            guard message.name == EPUBSchemeHandler.messageHandlerName,
                   let dict = message.body as? [String: Any],
-                  let type = dict["type"] as? String else { return }
+                  let typeString = dict["type"] as? String,
+                  let type = BridgeMessageType(rawValue: typeString) else { return }
 
             switch type {
-            case "relocate":
-                let info = RelocateInfo(
-                    fraction: dict["fraction"] as? Double ?? 0,
-                    cfi: dict["cfi"] as? String,
-                    tocLabel: dict["tocLabel"] as? String,
-                    sectionPage: dict["sectionPage"] as? Int,
-                    sectionPages: dict["sectionPages"] as? Int,
-                    sectionIndex: dict["sectionIndex"] as? Int,
-                    totalSections: dict["totalSections"] as? Int
-                )
-                onRelocate?(info)
-
-            case "bookReady":
-                let tocDicts = dict["toc"] as? [[String: Any]] ?? []
-                let toc = tocDicts.map { d in
-                    FoliateTOCItem(
-                        label: d["label"] as? String ?? "",
-                        href: d["href"] as? String ?? "",
-                        depth: d["depth"] as? Int ?? 0
-                    )
-                }
-                let sectionFractions = dict["sectionFractions"] as? [Double] ?? []
-                let sectionGroups = dict["sectionGroups"] as? [Int] ?? []
-                let dir = dict["dir"] as? String ?? "ltr"
-                onBookReady?(toc, sectionFractions, sectionGroups, dir)
-                applyThemeAndRestore()
-
-            case "load":
-                let isVertical = dict["isVertical"] as? Bool ?? false
-                onWritingModeDetected?(isVertical)
-
-            case "keydown":
-                let key = dict["key"] as? String ?? ""
-                onKeydown?(key)
-
-            case "paginationStarted":
+            case .relocate:
+                handleRelocate(dict)
+            case .bookReady:
+                handleBookReady(dict)
+            case .load:
+                handleLoad(dict)
+            case .keydown:
+                handleKeydown(dict)
+            case .paginationStarted:
                 onPaginationComplete?(nil)
-
-            case "paginationComplete":
-                if let counts = dict["counts"] as? [Int] {
-                    onPaginationComplete?(counts)
-                }
-
-            case "paginationProgress":
-                let completed = dict["completed"] as? Int ?? 0
-                let total = dict["total"] as? Int ?? 0
-                onPaginationProgress?(completed, total)
-
-            case "error":
+            case .paginationComplete:
+                handlePaginationComplete(dict)
+            case .paginationProgress:
+                handlePaginationProgress(dict)
+            case .error:
                 let message = dict["message"] as? String ?? "Unknown error"
                 print("[CalibreBridge] JS error: \(message)")
-
-            default:
-                break
             }
+        }
+
+        // MARK: - Message handlers
+
+        private func handleRelocate(_ dict: [String: Any]) {
+            let info = RelocateInfo(
+                fraction: dict["fraction"] as? Double ?? 0,
+                cfi: dict["cfi"] as? String,
+                tocLabel: dict["tocLabel"] as? String,
+                sectionPage: dict["sectionPage"] as? Int,
+                sectionPages: dict["sectionPages"] as? Int,
+                sectionIndex: dict["sectionIndex"] as? Int,
+                totalSections: dict["totalSections"] as? Int
+            )
+            onRelocate?(info)
+        }
+
+        private func handleBookReady(_ dict: [String: Any]) {
+            let tocDicts = dict["toc"] as? [[String: Any]] ?? []
+            let toc = tocDicts.map { d in
+                FoliateTOCItem(
+                    label: d["label"] as? String ?? "",
+                    href: d["href"] as? String ?? "",
+                    depth: d["depth"] as? Int ?? 0
+                )
+            }
+            let sectionFractions = dict["sectionFractions"] as? [Double] ?? []
+            let sectionGroups = dict["sectionGroups"] as? [Int] ?? []
+            let dir = dict["dir"] as? String ?? "ltr"
+            onBookReady?(toc, sectionFractions, sectionGroups, dir)
+            applyThemeAndRestore()
+        }
+
+        private func handleLoad(_ dict: [String: Any]) {
+            let isVertical = dict["isVertical"] as? Bool ?? false
+            onWritingModeDetected?(isVertical)
+        }
+
+        private func handleKeydown(_ dict: [String: Any]) {
+            let key = dict["key"] as? String ?? ""
+            onKeydown?(key)
+        }
+
+        private func handlePaginationComplete(_ dict: [String: Any]) {
+            if let counts = dict["counts"] as? [Int] {
+                onPaginationComplete?(counts)
+            }
+        }
+
+        private func handlePaginationProgress(_ dict: [String: Any]) {
+            let completed = dict["completed"] as? Int ?? 0
+            let total = dict["total"] as? Int ?? 0
+            onPaginationProgress?(completed, total)
         }
     }
 }

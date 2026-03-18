@@ -7,15 +7,15 @@ final class CalibreDatabase {
 
     // MARK: - Table definitions
 
-    private let books = Table("books")
-    private let authors = Table("authors")
-    private let tags = Table("tags")
-    private let series = Table("series")
-    private let publishers = Table("publishers")
-    private let ratings = Table("ratings")
-    private let languages = Table("languages")
-    private let comments = Table("comments")
-    private let data = Table("data")
+    private let booksTable = Table("books")
+    private let authorsTable = Table("authors")
+    private let tagsTable = Table("tags")
+    private let seriesTable = Table("series")
+    private let publishersTable = Table("publishers")
+    private let ratingsTable = Table("ratings")
+    private let languagesTable = Table("languages")
+    private let commentsTable = Table("comments")
+    private let dataTable = Table("data")
     private let booksAuthorsLink = Table("books_authors_link")
     private let booksTagsLink = Table("books_tags_link")
     private let booksSeriesLink = Table("books_series_link")
@@ -23,39 +23,46 @@ final class CalibreDatabase {
     private let booksRatingsLink = Table("books_ratings_link")
     private let booksLanguagesLink = Table("books_languages_link")
 
-    // MARK: - Column definitions
+    // MARK: - Shared column definitions
 
-    private let colId = SQLite.Expression<Int64>("id")
-    private let colTitle = SQLite.Expression<String>("title")
-    private let colSort = SQLite.Expression<String?>("sort")
-    private let colAuthorSort = SQLite.Expression<String?>("author_sort")
-    private let colTimestamp = SQLite.Expression<String?>("timestamp")
-    private let colPubdate = SQLite.Expression<String?>("pubdate")
-    private let colSeriesIndex = SQLite.Expression<Double>("series_index")
-    private let colPath = SQLite.Expression<String>("path")
-    private let colUuid = SQLite.Expression<String?>("uuid")
-    private let colHasCover = SQLite.Expression<Bool>("has_cover")
-    private let colLastModified = SQLite.Expression<String?>("last_modified")
+    private let idColumn = SQLite.Expression<Int64>("id")
+    private let nameColumn = SQLite.Expression<String>("name")
+    private let sortColumn = SQLite.Expression<String?>("sort")
+    private let linkColumn = SQLite.Expression<String?>("link")
+    private let bookFKColumn = SQLite.Expression<Int64>("book")
 
-    private let colName = SQLite.Expression<String>("name")
-    private let colLink = SQLite.Expression<String?>("link")
+    // MARK: - Books table columns
 
-    private let colBook = SQLite.Expression<Int64>("book")
-    private let colAuthor = SQLite.Expression<Int64>("author")
-    private let colTag = SQLite.Expression<Int64>("tag")
-    private let colSeriesFK = SQLite.Expression<Int64>("series")
-    private let colPublisher = SQLite.Expression<Int64>("publisher")
-    private let colRating = SQLite.Expression<Int64>("rating")
-    private let colLangCode = SQLite.Expression<Int64>("lang_code")
+    private let titleColumn = SQLite.Expression<String>("title")
+    private let authorSortColumn = SQLite.Expression<String?>("author_sort")
+    private let timestampColumn = SQLite.Expression<String?>("timestamp")
+    private let pubdateColumn = SQLite.Expression<String?>("pubdate")
+    private let seriesIndexColumn = SQLite.Expression<Double>("series_index")
+    private let pathColumn = SQLite.Expression<String>("path")
+    private let uuidColumn = SQLite.Expression<String?>("uuid")
+    private let hasCoverColumn = SQLite.Expression<Bool>("has_cover")
+    private let lastModifiedColumn = SQLite.Expression<String?>("last_modified")
 
-    private let colFormat = SQLite.Expression<String>("format")
-    private let colDataName = SQLite.Expression<String>("name")
-    private let colUncompressedSize = SQLite.Expression<Int64>("uncompressed_size")
+    // MARK: - Junction table FK columns
 
-    private let colText = SQLite.Expression<String?>("text")
-    private let colRatingValue = SQLite.Expression<Int64>("rating")
+    private let authorFKColumn = SQLite.Expression<Int64>("author")
+    private let tagFKColumn = SQLite.Expression<Int64>("tag")
+    private let seriesFKColumn = SQLite.Expression<Int64>("series")
+    private let publisherFKColumn = SQLite.Expression<Int64>("publisher")
+    private let ratingFKColumn = SQLite.Expression<Int64>("rating")
+    private let langCodeFKColumn = SQLite.Expression<Int64>("lang_code")
 
-    private let colLangCodeValue = SQLite.Expression<String>("lang_code")
+    // MARK: - Data table columns
+
+    private let formatColumn = SQLite.Expression<String>("format")
+    private let dataNameColumn = SQLite.Expression<String>("name")
+    private let uncompressedSizeColumn = SQLite.Expression<Int64>("uncompressed_size")
+
+    // MARK: - Other table columns
+
+    private let commentTextColumn = SQLite.Expression<String?>("text")
+    private let ratingValueColumn = SQLite.Expression<Int64>("rating")
+    private let langCodeValueColumn = SQLite.Expression<String>("lang_code")
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -93,21 +100,21 @@ final class CalibreDatabase {
 
         var booksList: [CalibreBook] = []
 
-        for row in try db.prepare(books) {
-            let bookId = row[colId]
+        for row in try db.prepare(booksTable) {
+            let bookId = row[idColumn]
 
             var book = CalibreBook(
                 id: bookId,
-                title: row[colTitle],
-                sortTitle: row[colSort] ?? row[colTitle],
-                authorSort: row[colAuthorSort] ?? "",
-                timestamp: row[colTimestamp].flatMap(Self.parseDate),
-                pubdate: row[colPubdate].flatMap(Self.parseDate),
-                seriesIndex: row[colSeriesIndex],
-                path: row[colPath],
-                uuid: row[colUuid] ?? "",
-                hasCover: row[colHasCover],
-                lastModified: row[colLastModified].flatMap(Self.parseDate)
+                title: row[titleColumn],
+                sortTitle: row[sortColumn] ?? row[titleColumn],
+                authorSort: row[authorSortColumn] ?? "",
+                timestamp: row[timestampColumn].flatMap(Self.parseDate),
+                pubdate: row[pubdateColumn].flatMap(Self.parseDate),
+                seriesIndex: row[seriesIndexColumn],
+                path: row[pathColumn],
+                uuid: row[uuidColumn] ?? "",
+                hasCover: row[hasCoverColumn],
+                lastModified: row[lastModifiedColumn].flatMap(Self.parseDate)
             )
 
             book.authors = (authorLinks[bookId] ?? []).compactMap { authorsById[$0] }
@@ -133,40 +140,40 @@ final class CalibreDatabase {
     // MARK: - Entity fetchers
 
     func fetchAllAuthors() throws -> [CalibreAuthor] {
-        try db.prepare(authors).map { row in
+        try db.prepare(authorsTable).map { row in
             CalibreAuthor(
-                id: row[colId],
-                name: row[colName],
-                sort: row[colSort] ?? row[colName],
-                link: row[colLink] ?? ""
+                id: row[idColumn],
+                name: row[nameColumn],
+                sort: row[sortColumn] ?? row[nameColumn],
+                link: row[linkColumn] ?? ""
             )
         }
     }
 
     func fetchAllTags() throws -> [CalibreTag] {
-        try db.prepare(tags).map { row in
-            CalibreTag(id: row[colId], name: row[colName])
+        try db.prepare(tagsTable).map { row in
+            CalibreTag(id: row[idColumn], name: row[nameColumn])
         }
     }
 
     func fetchAllSeries() throws -> [CalibreSeries] {
-        try db.prepare(series).map { row in
-            CalibreSeries(id: row[colId], name: row[colName], sort: row[colSort] ?? row[colName])
+        try db.prepare(seriesTable).map { row in
+            CalibreSeries(id: row[idColumn], name: row[nameColumn], sort: row[sortColumn] ?? row[nameColumn])
         }
     }
 
     // MARK: - Private helpers
 
     private func fetchAllPublishers() throws -> [(id: Int64, name: String)] {
-        try db.prepare(publishers).map { row in
-            (id: row[colId], name: row[colName])
+        try db.prepare(publishersTable).map { row in
+            (id: row[idColumn], name: row[nameColumn])
         }
     }
 
     private func fetchAuthorLinks() throws -> [Int64: [Int64]] {
         var map: [Int64: [Int64]] = [:]
         for row in try db.prepare(booksAuthorsLink) {
-            map[row[colBook], default: []].append(row[colAuthor])
+            map[row[bookFKColumn], default: []].append(row[authorFKColumn])
         }
         return map
     }
@@ -174,7 +181,7 @@ final class CalibreDatabase {
     private func fetchTagLinks() throws -> [Int64: [Int64]] {
         var map: [Int64: [Int64]] = [:]
         for row in try db.prepare(booksTagsLink) {
-            map[row[colBook], default: []].append(row[colTag])
+            map[row[bookFKColumn], default: []].append(row[tagFKColumn])
         }
         return map
     }
@@ -182,7 +189,7 @@ final class CalibreDatabase {
     private func fetchSeriesLinks() throws -> [Int64: Int64] {
         var map: [Int64: Int64] = [:]
         for row in try db.prepare(booksSeriesLink) {
-            map[row[colBook]] = row[colSeriesFK]
+            map[row[bookFKColumn]] = row[seriesFKColumn]
         }
         return map
     }
@@ -190,31 +197,31 @@ final class CalibreDatabase {
     private func fetchPublisherLinks() throws -> [Int64: Int64] {
         var map: [Int64: Int64] = [:]
         for row in try db.prepare(booksPublishersLink) {
-            map[row[colBook]] = row[colPublisher]
+            map[row[bookFKColumn]] = row[publisherFKColumn]
         }
         return map
     }
 
     private func fetchAllFormats() throws -> [Int64: [BookFormat]] {
         var map: [Int64: [BookFormat]] = [:]
-        for row in try db.prepare(data) {
+        for row in try db.prepare(dataTable) {
             let format = BookFormat(
-                id: row[colId],
-                bookId: row[colBook],
-                format: row[colFormat],
-                name: row[colDataName],
-                uncompressedSize: row[colUncompressedSize]
+                id: row[idColumn],
+                bookId: row[bookFKColumn],
+                format: row[formatColumn],
+                name: row[dataNameColumn],
+                uncompressedSize: row[uncompressedSizeColumn]
             )
-            map[row[colBook], default: []].append(format)
+            map[row[bookFKColumn], default: []].append(format)
         }
         return map
     }
 
     private func fetchComments() throws -> [Int64: String] {
         var map: [Int64: String] = [:]
-        for row in try db.prepare(comments) {
-            if let text = row[colText] {
-                map[row[colBook]] = text
+        for row in try db.prepare(commentsTable) {
+            if let text = row[commentTextColumn] {
+                map[row[bookFKColumn]] = text
             }
         }
         return map
@@ -223,16 +230,16 @@ final class CalibreDatabase {
     private func fetchRatings() throws -> [Int64: Int] {
         let ratingValues: [Int64: Int] = try {
             var map: [Int64: Int] = [:]
-            for row in try db.prepare(ratings) {
-                map[row[colId]] = Int(row[colRatingValue])
+            for row in try db.prepare(ratingsTable) {
+                map[row[idColumn]] = Int(row[ratingValueColumn])
             }
             return map
         }()
 
         var map: [Int64: Int] = [:]
         for row in try db.prepare(booksRatingsLink) {
-            if let value = ratingValues[row[colRating]] {
-                map[row[colBook]] = value
+            if let value = ratingValues[row[ratingFKColumn]] {
+                map[row[bookFKColumn]] = value
             }
         }
         return map

@@ -15,10 +15,31 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
         }
     }
 
+    // MARK: - CSS color definitions
+
+    private struct CSSColors {
+        let background: String
+        let foreground: String
+        let link: String
+
+        static let light = CSSColors(background: "#ffffff", foreground: "#2d2d2d", link: "#4a6fa5")
+        static let sepia = CSSColors(background: "#faf4e8", foreground: "#4a3728", link: "#8b6914")
+        static let dark = CSSColors(background: "#1c1c1e", foreground: "#d1d1d6", link: "#6b9bd2")
+    }
+
+    private var cssColors: CSSColors {
+        switch self {
+        case .light: return .light
+        case .sepia: return .sepia
+        case .dark: return .dark
+        }
+    }
+
     /// CSS injected into foliate-js content iframes via `renderer.setStyles()`.
     /// Only typography and colors — foliate-js manages layout, columns, and overflow.
     func css(fontSize: Int) -> String {
-        let (bg, fg, linkColor) = colors
+        let colors = cssColors
+        let imageBlendMode = self != .dark ? "\n            mix-blend-mode: multiply !important;" : ""
         return """
         body {
             font-family: 'Iowan Old Style', 'Palatino', 'Georgia', 'Hiragino Mincho ProN', 'YuMincho', serif !important;
@@ -28,8 +49,8 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
             word-spacing: 0.05em !important;
             text-rendering: optimizeLegibility !important;
             -webkit-font-smoothing: antialiased !important;
-            background-color: \(bg) !important;
-            color: \(fg);
+            background-color: \(colors.background) !important;
+            color: \(colors.foreground);
             text-align: justify !important;
             -webkit-hyphens: auto !important;
             hyphens: auto !important;
@@ -43,7 +64,7 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
             object-fit: contain !important;
             margin-left: auto !important;
             margin-right: auto !important;
-            break-inside: avoid !important;\(self != .dark ? "\n            mix-blend-mode: multiply !important;" : "")
+            break-inside: avoid !important;\(imageBlendMode)
         }
         p, li, blockquote, dd {
             orphans: 2 !important;
@@ -61,11 +82,11 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
         h2 { font-size: 1.35em !important; }
         h3 { font-size: 1.15em !important; }
         a {
-            color: \(linkColor) !important;
+            color: \(colors.link) !important;
             text-decoration: none !important;
         }
         blockquote {
-            border-inline-start: 3px solid \(fg) !important;
+            border-inline-start: 3px solid \(colors.foreground) !important;
             opacity: 0.85 !important;
             margin: 0.8em 0 0.8em 0.5em !important;
             padding-inline-start: 1em !important;
@@ -100,13 +121,7 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
         """
     }
 
-    private var colors: (bg: String, fg: String, link: String) {
-        switch self {
-        case .light: return ("#ffffff", "#2d2d2d", "#4a6fa5")
-        case .sepia: return ("#faf4e8", "#4a3728", "#8b6914")
-        case .dark: return ("#1c1c1e", "#d1d1d6", "#6b9bd2")
-        }
-    }
+    // MARK: - SwiftUI colors
 
     var swiftUIBackground: Color {
         switch self {

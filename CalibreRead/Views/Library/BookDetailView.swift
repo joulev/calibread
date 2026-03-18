@@ -103,23 +103,13 @@ struct BookDetailView: View {
         }
     }
 
-    @ViewBuilder
     private var coverImage: some View {
-        if let url = book.coverURL(libraryRoot: libraryRoot),
-           let nsImage = NSImage(contentsOf: url) {
-            Image(nsImage: nsImage)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-        } else {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(.quaternary)
-                .frame(width: 180, height: 280)
-                .overlay {
-                    Image(systemName: "book.closed")
-                        .font(.system(size: 40))
-                        .foregroundStyle(.secondary)
-                }
-        }
+        CoverImageView(
+            book: book,
+            libraryRoot: libraryRoot,
+            contentMode: .fit,
+            placeholderIconFont: .system(size: 40)
+        )
     }
 
     private func metadataRow(_ label: String, value: String) -> some View {
