@@ -26,7 +26,7 @@ struct WelcomeView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(.secondary)
 
-            Text("CalibreRead")
+            Text("Calibread")
                 .font(.largeTitle.bold())
 
             Text("Open your Calibre library to get started.")

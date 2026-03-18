@@ -1,4 +1,4 @@
-name: Build CalibreRead
+name: Build Calibread
 
 on:
   push:
@@ -32,12 +32,12 @@ jobs:
 
       - name: Package app
         run: |
-          APP_PATH="build/Build/Products/Release/CalibreRead.app"
-          ditto -c -k --keepParent "$APP_PATH" CalibreRead.zip
+          APP_PATH="build/Build/Products/Release/Calibread.app"
+          ditto -c -k --keepParent "$APP_PATH" Calibread.zip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CalibreRead-${{ github.sha }}
-          path: CalibreRead.zip
+          name: Calibread-${{ github.sha }}
+          path: Calibread.zip
 

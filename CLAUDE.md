@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Project Is
 
-CalibreRead is a native macOS SwiftUI app that reads an existing Calibre ebook library from the filesystem. It is a **read-only** ereader — it never writes to the Calibre library or its `metadata.db`. All user data (reading progress, bookmarks) is stored separately via SwiftData.
+Calibread is a native macOS SwiftUI app that reads an existing Calibre ebook library from the filesystem. It is a **read-only** ereader — it never writes to the Calibre library or its `metadata.db`. All user data (reading progress, bookmarks) is stored separately via SwiftData.
 
 The app is for personal use only — not distributed via the App Store. Builds are created by GitHub Actions CI and downloaded directly.
 
@@ -24,9 +24,9 @@ The app is for personal use only — not distributed via the App Store. Builds a
     CODE_SIGNING_ALLOWED=NO \
     DEVELOPMENT_TEAM=""
   ```
-  Built app output: `build/Build/Products/Release/CalibreRead.app`
+  Built app output: `build/Build/Products/Release/Calibread.app`
 - **CI**: GitHub Actions (`.github/workflows/build.yml`) builds on pushes to `main`, uploads a `.zip` artifact
-- **No code signing**: Built unsigned (ad-hoc). After downloading, run `xattr -cr CalibreRead.app` to remove Gatekeeper quarantine
+- **No code signing**: Built unsigned (ad-hoc). After downloading, run `xattr -cr Calibread.app` to remove Gatekeeper quarantine
 - **No tests or linting**: The project has no test targets, no SwiftLint, and no test steps in CI. The CI build succeeding is the only automated check.
 
 ## Architecture

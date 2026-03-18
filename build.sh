@@ -13,6 +13,6 @@ xcodebuild build \
   CODE_SIGNING_ALLOWED=NO \
   DEVELOPMENT_TEAM=""
 
-xattr -cr build/Build/Products/Release/CalibreRead.app
+xattr -cr build/Build/Products/Release/Calibread.app
 
-echo "Built: $(cd build/Build/Products/Release && pwd)/CalibreRead.app"
+echo "Built: $(cd build/Build/Products/Release && pwd)/Calibread.app"

@@ -1,4 +1,4 @@
-# CalibreRead
+# Calibread
 
 A native macOS SwiftUI ereader for Calibre libraries. Opens your existing Calibre library folder and lets you read EPUB and PDF books with a clean, native interface. Read-only — never modifies your library.
 
@@ -17,10 +17,10 @@ A native macOS SwiftUI ereader for Calibre libraries. Opens your existing Calibr
 
 ## Install
 
-Download `CalibreRead.zip` from the latest [GitHub Release](../../releases/latest), unzip, then run once in Terminal:
+Download `Calibread.zip` from the latest [GitHub Release](../../releases/latest), unzip, then run once in Terminal:
 
 ```bash
-xattr -cr CalibreRead.app
+xattr -cr Calibread.app
 ```
 
 Move to `/Applications` and open.
