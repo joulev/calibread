@@ -3,9 +3,18 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(LibraryManager.self) private var library
     @State private var libraryPath: String = ""
+    @AppStorage("readerTheme") private var readerTheme: ReaderTheme = .sepia
 
     var body: some View {
         Form {
+            Section("Reader") {
+                Picker("Default Theme", selection: $readerTheme) {
+                    ForEach(ReaderTheme.allCases, id: \.self) { theme in
+                        Label(theme.rawValue, systemImage: theme.icon)
+                    }
+                }
+            }
+
             Section("Calibre Library") {
                 HStack {
                     TextField("Library Path", text: $libraryPath)

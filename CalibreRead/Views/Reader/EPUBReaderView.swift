@@ -21,7 +21,7 @@ struct EPUBReaderView: View {
 
     @State private var showTOC = false
     @State private var showFontPanel = false
-    @State private var theme: ReaderTheme = .sepia
+    @AppStorage("readerTheme") private var theme: ReaderTheme = .sepia
     @State private var fontSize = ReaderConstants.defaultFontSize
     @State private var pageController = FoliatePageController()
     @State private var isHoveringLeft = false
