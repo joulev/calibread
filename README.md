@@ -27,8 +27,8 @@ Move to `/Applications` and open.
 
 ## Build from Source
 
-Open `CalibreRead.xcodeproj` in Xcode 26. SPM dependencies (SQLite.swift, EPUBKit) resolve automatically. Build and run.
+Open `CalibreRead.xcodeproj` in Xcode 26. SPM dependencies (SQLite.swift) resolve automatically. Build and run.
 
 ## How It Works
 
-The app reads your Calibre library's `metadata.db` (SQLite) to get book metadata, covers, and file paths. EPUB files are parsed with EPUBKit and rendered in a WKWebView with custom CSS injection. PDFs are rendered with native PDFKit. Reading progress is stored in the app's own SwiftData database — your Calibre library is never modified.
+The app reads your Calibre library's `metadata.db` (SQLite) to get book metadata, covers, and file paths. EPUB files are rendered in a WKWebView using [foliate-js](https://github.com/johnfactotum/foliate-js) (vendored), which handles parsing, pagination, and display. PDFs are rendered with native PDFKit. Reading progress is stored in the app's own SwiftData database — your Calibre library is never modified.

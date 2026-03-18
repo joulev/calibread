@@ -25,7 +25,7 @@ The app is for personal use only — not distributed via the App Store. Builds a
     DEVELOPMENT_TEAM=""
   ```
   Built app output: `build/Build/Products/Release/CalibreRead.app`
-- **CI**: GitHub Actions (`.github/workflows/build.yml`) builds on every push, creates a GitHub Release with a `.zip` on pushes to `main`
+- **CI**: GitHub Actions (`.github/workflows/build.yml`) builds on pushes to `main`, uploads a `.zip` artifact
 - **No code signing**: Built unsigned (ad-hoc). After downloading, run `xattr -cr CalibreRead.app` to remove Gatekeeper quarantine
 - **No tests or linting**: The project has no test targets, no SwiftLint, and no test steps in CI. The CI build succeeding is the only automated check.
 
@@ -81,6 +81,7 @@ EPUBReaderView (state: fraction, CFI, theme, font size)
 | PDF reading | `Views/Reader/PDFReaderView.swift`, `Utilities/PDFViewRepresentable.swift` |
 | Library UI | `Views/Library/LibraryView.swift`, `Views/Library/SidebarView.swift` |
 | Reader themes | `Utilities/ReaderTheme.swift` |
+| Settings | `Views/Settings/SettingsView.swift` |
 
 ## Key Dependencies (SPM)
 
@@ -138,4 +139,3 @@ These caused real build failures and are worth knowing:
 - [ ] Full-screen reading mode
 - [ ] Annotations and highlights (foliate-js overlay system available but not wired to UI)
 - [ ] In-book search (foliate-js search API available but not wired to UI)
-- [ ] App icon
