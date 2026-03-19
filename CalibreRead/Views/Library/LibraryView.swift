@@ -94,6 +94,7 @@ struct LibraryView: View {
         guard let libraryRoot = library.libraryURL,
               let data = BookWindowData(book: book, libraryRoot: libraryRoot) else { return }
         recordBookOpened(book)
+        RecentBooksManager.shared.addRecentBook(data)
         openWindow(value: data)
     }
 

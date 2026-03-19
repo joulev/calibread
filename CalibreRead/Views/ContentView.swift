@@ -2,17 +2,25 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(LibraryManager.self) private var library
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        if library.isLoaded {
-            NavigationSplitView {
-                SidebarView()
-            } detail: {
-                LibraryView()
+        Group {
+            if library.isLoaded {
+                NavigationSplitView {
+                    SidebarView()
+                } detail: {
+                    LibraryView()
+                }
+                .frame(minWidth: 800, minHeight: 500)
+            } else {
+                WelcomeView()
             }
-            .frame(minWidth: 800, minHeight: 500)
-        } else {
-            WelcomeView()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openRecentBook)) { notification in
+            if let book = notification.object as? BookWindowData {
+                openWindow(value: book)
+            }
         }
     }
 }

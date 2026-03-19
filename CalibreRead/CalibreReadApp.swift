@@ -1,15 +1,37 @@
 import SwiftUI
 import SwiftData
 
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         NotificationCenter.default.post(name: .showLibraryWindow, object: nil)
         return true
     }
+
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        let recentBooks = RecentBooksManager.shared.recentBooks
+        guard !recentBooks.isEmpty else { return nil }
+
+        let menu = NSMenu()
+        for (index, book) in recentBooks.enumerated() {
+            let item = NSMenuItem(title: book.title.truncated(toWidth: 350), action: #selector(openRecentBook(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = index
+            menu.addItem(item)
+        }
+        return menu
+    }
+
+    @objc func openRecentBook(_ sender: NSMenuItem) {
+        let books = RecentBooksManager.shared.recentBooks
+        guard sender.tag < books.count else { return }
+        NotificationCenter.default.post(name: .openRecentBook, object: books[sender.tag])
+    }
 }
 
 extension Notification.Name {
     static let showLibraryWindow = Notification.Name("showLibraryWindow")
+    static let openRecentBook = Notification.Name("openRecentBook")
 }
 
 @main
@@ -43,6 +65,10 @@ struct CalibreReadApp: App {
                 }
                 .keyboardShortcut("r", modifiers: [.command])
                 .disabled(!library.isLoaded)
+
+                Divider()
+
+                OpenRecentMenu()
             }
         }
 
@@ -72,6 +98,26 @@ struct CalibreReadApp: App {
 
         if panel.runModal() == .OK, let url = panel.url {
             library.libraryURL = url
+        }
+    }
+}
+
+/// "Open Recent" submenu for the File menu.
+private struct OpenRecentMenu: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        let recentBooks = RecentBooksManager.shared.recentBooks
+        Menu("Open Recent") {
+            if recentBooks.isEmpty {
+                Text("No Recent Books")
+            } else {
+                ForEach(recentBooks, id: \.uuid) { book in
+                    Button(book.title.truncated(toWidth: 350)) {
+                        openWindow(value: book)
+                    }
+                }
+            }
         }
     }
 }
@@ -115,6 +161,11 @@ private struct BookReaderWindow: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .showLibraryWindow)) { _ in
             openWindow(id: "library")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openRecentBook)) { notification in
+            if let book = notification.object as? BookWindowData {
+                openWindow(value: book)
+            }
         }
     }
 }

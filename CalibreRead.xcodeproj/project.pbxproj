@@ -36,6 +36,7 @@
 		A10052 /* EPUBFontControlsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10052 /* EPUBFontControlsPanel.swift */; };
 		A10053 /* EPUBBottomBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10053 /* EPUBBottomBar.swift */; };
 		A10054 /* EPUBTOCView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10054 /* EPUBTOCView.swift */; };
+		A10055 /* RecentBooksManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10055 /* RecentBooksManager.swift */; };
 		A10042 /* reader.html in Resources */ = {isa = PBXBuildFile; fileRef = B10042 /* reader.html */; };
 		A10043 /* bridge.js in Resources */ = {isa = PBXBuildFile; fileRef = B10043 /* bridge.js */; };
 		A10044 /* foliate in Resources */ = {isa = PBXBuildFile; fileRef = B10044 /* foliate */; };
@@ -78,6 +79,7 @@
 		B10052 /* EPUBFontControlsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPUBFontControlsPanel.swift; sourceTree = "<group>"; };
 		B10053 /* EPUBBottomBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPUBBottomBar.swift; sourceTree = "<group>"; };
 		B10054 /* EPUBTOCView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPUBTOCView.swift; sourceTree = "<group>"; };
+		B10055 /* RecentBooksManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentBooksManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -191,6 +193,7 @@
 				B10029 /* ReaderTheme.swift */,
 				B10040 /* EPUBSchemeHandler.swift */,
 				B10041 /* FoliateWebView.swift */,
+				B10055 /* RecentBooksManager.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -319,6 +322,7 @@
 				A10052 /* EPUBFontControlsPanel.swift in Sources */,
 				A10053 /* EPUBBottomBar.swift in Sources */,
 				A10054 /* EPUBTOCView.swift in Sources */,
+				A10055 /* RecentBooksManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
