@@ -57,7 +57,10 @@ final class EPUBSchemeHandler: NSObject, WKURLSchemeHandler {
             task.didFailWithError(URLError(.fileDoesNotExist))
             return
         }
-        respond(task, data: data, mimeType: "application/epub+zip")
+        // Use application/octet-stream instead of application/epub+zip to prevent
+        // WebKit from auto-downloading and extracting the EPUB zip to ~/Documents.
+        // bridge.js creates its own File object with the correct MIME type.
+        respond(task, data: data, mimeType: "application/octet-stream")
     }
 
     private func serveAppResource(_ path: String, _ task: any WKURLSchemeTask) {
