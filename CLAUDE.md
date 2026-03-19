@@ -28,6 +28,7 @@ The app is for personal use only — not distributed via the App Store. Builds a
 - **CI**: GitHub Actions (`.github/workflows/build.yml`) builds on pushes to `main`, uploads a `.zip` artifact
 - **No code signing**: Built unsigned (ad-hoc). After downloading, run `xattr -cr Calibread.app` to remove Gatekeeper quarantine
 - **No tests or linting**: The project has no test targets, no SwiftLint, and no test steps in CI. The CI build succeeding is the only automated check.
+- **Releases**: Managed by [release-please](https://github.com/googleapis/release-please). **All commits must use [Conventional Commits](https://www.conventionalcommits.org/)** format (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `perf:`, `ci:`). Release-please uses these prefixes to auto-generate changelogs and determine version bumps. Append `!` for breaking changes (e.g. `feat!:`).
 
 ## Architecture
 
