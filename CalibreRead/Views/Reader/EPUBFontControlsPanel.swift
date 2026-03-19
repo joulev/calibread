@@ -3,6 +3,10 @@ import SwiftUI
 struct EPUBFontControlsPanel: View {
     @Binding var fontSize: Int
     @Binding var theme: ReaderTheme
+    @Binding var mainFont: String
+    @Binding var supplementalFont: String
+
+    private static let systemFonts: [String] = NSFontManager.shared.availableFontFamilies.sorted()
 
     var body: some View {
         VStack(spacing: 16) {
@@ -23,6 +27,11 @@ struct EPUBFontControlsPanel: View {
                     labelFont: .system(size: 18, weight: .medium),
                     action: { fontSize = min(ReaderConstants.maxFontSize, fontSize + ReaderConstants.fontSizeStep) }
                 )
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                fontPickerRow("Main font", defaultName: ReaderConstants.defaultMainFont, selection: $mainFont)
+                fontPickerRow("Supplemental font", defaultName: ReaderConstants.defaultSupplementalFont, selection: $supplementalFont)
             }
 
             HStack(spacing: 10) {
@@ -46,6 +55,28 @@ struct EPUBFontControlsPanel: View {
             }
         }
         .padding(16)
+    }
+
+    private func fontPickerRow(_ label: String, defaultName: String, selection: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+
+            Picker(label, selection: selection) {
+                Text("Default (\(defaultName))")
+                    .font(.custom(defaultName, size: 13))
+                    .tag("")
+                Divider()
+                ForEach(Self.systemFonts, id: \.self) { font in
+                    Text(font)
+                        .font(.custom(font, size: 13))
+                        .tag(font)
+                }
+            }
+            .labelsHidden()
+            .buttonSizing(.flexible)
+        }
     }
 
     private func fontSizeButton(label: String, labelFont: Font, action: @escaping () -> Void) -> some View {

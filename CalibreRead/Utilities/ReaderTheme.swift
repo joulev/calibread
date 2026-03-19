@@ -37,12 +37,17 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
 
     /// CSS injected into foliate-js content iframes via `renderer.setStyles()`.
     /// Only typography and colors — foliate-js manages layout, columns, and overflow.
-    func css(fontSize: Int) -> String {
+    func css(fontSize: Int, mainFont: String = "", supplementalFont: String = "") -> String {
         let colors = cssColors
         let imageBlendMode = self != .dark ? "\n            mix-blend-mode: multiply !important;" : ""
+
+        let effectiveMain = mainFont.isEmpty ? ReaderConstants.defaultMainFont : mainFont
+        let effectiveSupplemental = supplementalFont.isEmpty ? ReaderConstants.defaultSupplementalFont : supplementalFont
+        let fontFamily = "'\(effectiveMain)', '\(effectiveSupplemental)', serif"
+
         return """
         body {
-            font-family: 'Iowan Old Style', 'Palatino', 'Georgia', 'Hiragino Mincho ProN', 'YuMincho', serif !important;
+            font-family: \(fontFamily) !important;
             font-size: \(fontSize)px !important;
             line-height: 1.5 !important;
             letter-spacing: 0.01em !important;

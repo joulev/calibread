@@ -90,6 +90,8 @@ struct FoliateWebView: NSViewRepresentable {
     let bookURL: URL
     let theme: ReaderTheme
     let fontSize: Int
+    let mainFont: String
+    let supplementalFont: String
     let controller: FoliatePageController
     let lastCFI: String?
     let lastFraction: Double?
@@ -131,6 +133,8 @@ struct FoliateWebView: NSViewRepresentable {
         context.coordinator.controller = controller
         context.coordinator.theme = theme
         context.coordinator.fontSize = fontSize
+        context.coordinator.mainFont = mainFont
+        context.coordinator.supplementalFont = supplementalFont
         context.coordinator.lastCFI = lastCFI
         context.coordinator.lastFraction = lastFraction
 
@@ -154,15 +158,18 @@ struct FoliateWebView: NSViewRepresentable {
         context.coordinator.lastCFI = lastCFI
         context.coordinator.lastFraction = lastFraction
 
-        if context.coordinator.theme != theme || context.coordinator.fontSize != fontSize {
+        if context.coordinator.theme != theme || context.coordinator.fontSize != fontSize
+            || context.coordinator.mainFont != mainFont || context.coordinator.supplementalFont != supplementalFont {
             context.coordinator.theme = theme
             context.coordinator.fontSize = fontSize
+            context.coordinator.mainFont = mainFont
+            context.coordinator.supplementalFont = supplementalFont
             applyTheme(in: webView)
         }
     }
 
     private func applyTheme(in webView: WKWebView) {
-        let css = theme.css(fontSize: fontSize)
+        let css = theme.css(fontSize: fontSize, mainFont: mainFont, supplementalFont: supplementalFont)
         let escaped = css.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "`", with: "\\`")
         webView.evaluateJavaScript("CalibreBridge.setStyles(`\(escaped)`)", completionHandler: nil)
@@ -174,6 +181,8 @@ struct FoliateWebView: NSViewRepresentable {
         var controller: FoliatePageController?
         var theme: ReaderTheme = .light
         var fontSize: Int = 18
+        var mainFont: String = ""
+        var supplementalFont: String = ""
         var lastCFI: String?
         var lastFraction: Double?
         var bookOpened = false
@@ -239,7 +248,7 @@ struct FoliateWebView: NSViewRepresentable {
         }
 
         private func applyThemeAndRestore() {
-            let css = theme.css(fontSize: fontSize)
+            let css = theme.css(fontSize: fontSize, mainFont: mainFont, supplementalFont: supplementalFont)
             let escapedCSS = css.replacingOccurrences(of: "\\", with: "\\\\")
                 .replacingOccurrences(of: "`", with: "\\`")
             webView?.evaluateJavaScript("CalibreBridge.setStyles(`\(escapedCSS)`)", completionHandler: nil)

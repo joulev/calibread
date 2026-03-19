@@ -10,6 +10,8 @@ enum ReaderConstants {
     static let fontSizeStep = 2
     static let defaultFontSize = 18
     static let progressBarHeight: CGFloat = 3
+    static let defaultMainFont = "Iowan Old Style"
+    static let defaultSupplementalFont = "Hiragino Mincho ProN"
 }
 
 struct EPUBReaderView: View {
@@ -22,7 +24,9 @@ struct EPUBReaderView: View {
     @State private var showTOC = false
     @State private var showFontPanel = false
     @AppStorage("readerTheme") private var theme: ReaderTheme = .sepia
-    @State private var fontSize = ReaderConstants.defaultFontSize
+    @AppStorage("readerMainFont") private var mainFont = ""
+    @AppStorage("readerSupplementalFont") private var supplementalFont = ""
+    @AppStorage("readerFontSize") private var fontSize = ReaderConstants.defaultFontSize
     @State private var pageController = FoliatePageController()
     @State private var isHoveringLeft = false
     @State private var isHoveringRight = false
@@ -133,7 +137,12 @@ struct EPUBReaderView: View {
                     Label("Appearance", systemImage: "textformat.size")
                 }
                 .popover(isPresented: $showFontPanel, arrowEdge: .bottom) {
-                    EPUBFontControlsPanel(fontSize: $fontSize, theme: $theme)
+                    EPUBFontControlsPanel(
+                        fontSize: $fontSize,
+                        theme: $theme,
+                        mainFont: $mainFont,
+                        supplementalFont: $supplementalFont
+                    )
                 }
             }
         }
@@ -169,6 +178,8 @@ struct EPUBReaderView: View {
                     bookURL: bookURL,
                     theme: theme,
                     fontSize: fontSize,
+                    mainFont: mainFont,
+                    supplementalFont: supplementalFont,
                     controller: pageController,
                     lastCFI: savedCFI,
                     lastFraction: savedFraction,
