@@ -190,6 +190,7 @@ struct EPUBReaderView: View {
                         sectionPage = info.sectionPage
                         sectionTotalPages = info.sectionPages
                         currentSectionIndex = info.sectionIndex
+                        saveProgress()
                     },
                     onBookReady: { tocItems, fractions, groups, dir in
                         toc = tocItems
