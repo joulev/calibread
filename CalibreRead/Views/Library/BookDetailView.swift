@@ -1,5 +1,4 @@
 import SwiftUI
-import WebKit
 
 struct BookDetailView: View {
     let book: CalibreBook
@@ -162,22 +161,38 @@ struct FlowLayout: Layout {
     }
 }
 
-/// Renders HTML content (book descriptions from Calibre) using a lightweight web view.
+/// Renders HTML content (book descriptions from Calibre) using NSTextView with NSAttributedString.
 struct HTMLTextView: NSViewRepresentable {
     let html: String
 
-    func makeNSView(context: Context) -> WKWebView {
-        let webView = WKWebView()
-        webView.setValue(false, forKey: "drawsBackground")
-        loadHTML(in: webView)
-        return webView
+    func makeNSView(context: Context) -> NSScrollView {
+        let textView = NSTextView()
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.drawsBackground = false
+        textView.textContainerInset = .zero
+        textView.textContainer?.lineFragmentPadding = 0
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller = false
+        scrollView.hasHorizontalScroller = false
+        scrollView.drawsBackground = false
+        scrollView.documentView = textView
+
+        loadHTML(in: textView)
+        return scrollView
     }
 
-    func updateNSView(_ webView: WKWebView, context: Context) {
-        loadHTML(in: webView)
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        if let textView = scrollView.documentView as? NSTextView {
+            loadHTML(in: textView)
+        }
     }
 
-    private func loadHTML(in webView: WKWebView) {
+    private func loadHTML(in textView: NSTextView) {
         let styledHTML = """
         <html>
         <head>
@@ -185,19 +200,21 @@ struct HTMLTextView: NSViewRepresentable {
             body {
                 font-family: -apple-system, BlinkMacSystemFont, sans-serif;
                 font-size: 13px;
-                color: -apple-system-label;
                 margin: 0;
                 padding: 0;
-                -webkit-text-size-adjust: none;
-            }
-            @media (prefers-color-scheme: dark) {
-                body { color: #e0e0e0; }
             }
         </style>
         </head>
         <body>\(html)</body>
         </html>
         """
-        webView.loadHTMLString(styledHTML, baseURL: nil)
+        guard let data = styledHTML.data(using: .utf8),
+              let attrString = try? NSAttributedString(
+                  data: data,
+                  options: [.documentType: NSAttributedString.DocumentType.html,
+                            .characterEncoding: String.Encoding.utf8.rawValue],
+                  documentAttributes: nil
+              ) else { return }
+        textView.textStorage?.setAttributedString(attrString)
     }
 }

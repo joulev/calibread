@@ -145,6 +145,16 @@ struct FoliateWebView: NSViewRepresentable {
         return webView
     }
 
+    static func dismantleNSView(_ webView: WKWebView, coordinator: Coordinator) {
+        webView.configuration.userContentController.removeScriptMessageHandler(
+            forName: EPUBSchemeHandler.messageHandlerName
+        )
+        webView.navigationDelegate = nil
+        coordinator.webView = nil
+        coordinator.controller?.webView = nil
+        coordinator.controller = nil
+    }
+
     func updateNSView(_ webView: WKWebView, context: Context) {
         context.coordinator.onRelocate = onRelocate
         context.coordinator.onBookReady = onBookReady
