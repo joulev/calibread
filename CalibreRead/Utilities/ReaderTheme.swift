@@ -123,6 +123,7 @@ enum ReaderTheme: String, CaseIterable, Identifiable {
             margin: 1.5em 0 !important;
         }
         sup { line-height: 0 !important; }
+        rt { -webkit-user-select: none !important; user-select: none !important; }
         """
     }
 
